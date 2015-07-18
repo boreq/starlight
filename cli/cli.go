@@ -158,11 +158,12 @@ func (c Command) Execute(cmdName string, globalOpt []Option, args []string) erro
 	}
 	if context.Options["help"].Bool() || c.Run == nil{
 		c.PrintHelp(cmdName)
+		return nil
 	} else {
 		e := c.Run(*context)
 		if (e == ErrInvalidParms) {
 			c.PrintHelp(cmdName)
 		}
+		return e
 	}
-	return nil
 }

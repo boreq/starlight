@@ -30,5 +30,8 @@ func main() {
 	argOffset := len(os.Args) - len(args)
 	foundCmdName := strings.Join(os.Args[:argOffset], " ")
 	c.Options = append(c.Options, globalOpt...)
-	c.Execute(foundCmdName, globalOpt, args)
+	e := c.Execute(foundCmdName, globalOpt, args)
+	if e != nil {
+		panic(e)
+	}
 }

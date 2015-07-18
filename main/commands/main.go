@@ -16,6 +16,9 @@ var MainCmd = cli.Command{
 		}
 		return cli.ErrInvalidParms
 	},
+	Subcommands: map[string]*cli.Command{
+		"init": &initCmd,
+	},
 	ShortDescription: "distributed blogging platform",
 	Description:
 `Main command decription.
