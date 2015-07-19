@@ -21,7 +21,7 @@ var initCmd = cli.Command{
 			Name:        "b",
 			Type:        cli.Int,
 			Default:     4096,
-			Description: "Number of bits which will be used during RSA key generation (default 4096)",
+			Description: "Number of bits in the generated RSA key (default 4096)",
 		},
 	},
 	Run:              runInit,
