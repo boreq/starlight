@@ -12,18 +12,16 @@ import (
 // This part of the config structure is saved in the config file in JSON format.
 type savedConfig struct {
 	ListenAddress string
-	LocalAddress string
+	LocalAddress  string
 }
 
 // Full config struct.
 type Config struct {
 	savedConfig
-	// Directory containing all configuration and data files.
-	Directory string
 }
 
 func (conf *Config) filePath() string {
-	return path.Join(conf.Directory, "config.json")
+	return path.Join(GetDir(), "config.json")
 }
 
 func (conf *Config) Load() error {
@@ -35,10 +33,6 @@ func (conf *Config) Load() error {
 }
 
 func (conf *Config) Save() error {
-	err := os.MkdirAll(conf.Directory, 0700)
-	if err != nil && !os.IsExist(err) {
-		return err
-	}
 	jsonEncoded, err := json.MarshalIndent(conf.savedConfig, "", "	")
 	if err != nil {
 		return err
@@ -57,24 +51,25 @@ func Get() (*Config, error) {
 	return conf, nil
 }
 
-// Returns a config filled with default values.
-func Default() *Config {
-	// Default directory in $HOME
-	user, _ := user.Current()
-	dir := path.Join(user.HomeDir, ".netblog")
-
+// Returns the directory in which config and data should be saved.
+func GetDir() string {
 	// Overriden by env variable
-	envDir := os.Getenv("NETBLOGPATH")
-	if envDir != "" {
-		dir = envDir
+	if envDir := os.Getenv("NETBLOGPATH"); envDir != "" {
+		return envDir
 	}
 
+	// Default directory in $HOME
+	user, _ := user.Current()
+	return path.Join(user.HomeDir, ".netblog")
+}
+
+// Returns a config filled with default values.
+func Default() *Config {
 	conf := &Config{
 		savedConfig{
 			ListenAddress: ":1836",
-			LocalAddress: "/tmp/netblog.socket",
+			LocalAddress:  "/tmp/netblog.socket",
 		},
-		dir,
 	}
 	return conf
 }

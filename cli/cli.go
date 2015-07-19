@@ -10,6 +10,7 @@ import (
 var ErrInvalidParms = errors.New("invalid parameters")
 
 type ValType int
+
 const (
 	String ValType = iota
 	Bool
@@ -18,9 +19,9 @@ const (
 
 // Used to generate flags use by the flag module.
 type Option struct {
-	Name string
-	Type ValType
-	Default interface{}
+	Name        string
+	Type        ValType
+	Default     interface{}
 	Description string
 }
 
@@ -34,8 +35,8 @@ func (opt Option) String() string {
 
 // Used only for generating help.
 type Argument struct {
-	Name string
-	Multiple bool
+	Name        string
+	Multiple    bool
 	Description string
 }
 
@@ -55,8 +56,12 @@ func (v OptionValue) Bool() bool {
 	return *v.Value.(*bool)
 }
 
+func (v OptionValue) Int() int {
+	return *v.Value.(*int)
+}
+
 type Context struct {
-	Options map[string]OptionValue
+	Options   map[string]OptionValue
 	Arguments []string
 }
 
@@ -66,23 +71,30 @@ func makeContext(c Command, args []string) (*Context, error) {
 	}
 
 	flagset := flag.NewFlagSet("sth", flag.ContinueOnError)
-	flagset.Usage = func(){}
+	flagset.Usage = func() {}
 	for _, option := range c.Options {
 		switch option.Type {
-			case String:
-				if option.Default == nil {
-					option.Default = ""
-				}
-				context.Options[option.Name] = OptionValue{
-					Value: flagset.String(option.Name, option.Default.(string), ""),
-				}
-			case Bool:
-				if option.Default == nil {
-					option.Default = false
-				}
-				context.Options[option.Name] = OptionValue{
-					Value: flagset.Bool(option.Name, option.Default.(bool), ""),
-				}
+		case String:
+			if option.Default == nil {
+				option.Default = ""
+			}
+			context.Options[option.Name] = OptionValue{
+				Value: flagset.String(option.Name, option.Default.(string), ""),
+			}
+		case Bool:
+			if option.Default == nil {
+				option.Default = false
+			}
+			context.Options[option.Name] = OptionValue{
+				Value: flagset.Bool(option.Name, option.Default.(bool), ""),
+			}
+		case Int:
+			if option.Default == nil {
+				option.Default = 0
+			}
+			context.Options[option.Name] = OptionValue{
+				Value: flagset.Int(option.Name, option.Default.(int), ""),
+			}
 		}
 	}
 	e := flagset.Parse(args)
@@ -96,12 +108,12 @@ func makeContext(c Command, args []string) (*Context, error) {
 type CommandFunction func(Context) error
 
 type Command struct {
-	Options []Option
-	Run CommandFunction
-	Subcommands map[string]*Command
-	Arguments []Argument
+	Options          []Option
+	Run              CommandFunction
+	Subcommands      map[string]*Command
+	Arguments        []Argument
 	ShortDescription string
-	Description string
+	Description      string
 }
 
 func (c Command) UsageString(cmdName string) string {
@@ -144,7 +156,8 @@ func (c Command) PrintHelp(cmdName string) {
 
 	if len(c.Description) > 0 {
 		fmt.Println("\nDESCRIPTION:")
-		for _, line := range strings.Split(c.Description, "\n") {
+		desc := strings.Trim(c.Description, "\n")
+		for _, line := range strings.Split(desc, "\n") {
 			fmt.Printf("    %s\n", line)
 		}
 	}
@@ -156,12 +169,12 @@ func (c Command) Execute(cmdName string, globalOpt []Option, args []string) erro
 		c.PrintHelp(cmdName)
 		return e
 	}
-	if context.Options["help"].Bool() || c.Run == nil{
+	if context.Options["help"].Bool() || c.Run == nil {
 		c.PrintHelp(cmdName)
 		return nil
 	} else {
 		e := c.Run(*context)
-		if (e == ErrInvalidParms) {
+		if e == ErrInvalidParms {
 			c.PrintHelp(cmdName)
 		}
 		return e
