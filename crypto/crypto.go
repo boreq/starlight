@@ -9,6 +9,7 @@ type Key interface {
 
 type PrivateKey interface {
 	Key
+	PublicKey() PublicKey
 }
 
 type PublicKey interface {
