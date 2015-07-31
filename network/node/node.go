@@ -1,22 +1,24 @@
 package node
 
 import (
+	"encoding/pem"
 	"fmt"
 	"github.com/boreq/netblog/crypto"
-	"github.com/boreq/netblog/encode"
-	"github.com/boreq/netblog/utils"
 	"io/ioutil"
 	"path"
 )
 
-const minKeyBits = 2048
+type ID []byte
 
 type Identity struct {
-	Id      []byte
+	Id      ID
 	PubKey  crypto.PublicKey
 	PrivKey crypto.PrivateKey
 }
 
+const minKeyBits = 2048
+
+// Generates a fresh identity (keypair) for a local node.
 func GenerateIdentity(bits, difficulty int) (*Identity, error) {
 	// Should this be placed here and not in the init command?
 	if bits < minKeyBits {
@@ -36,34 +38,52 @@ func GenerateIdentity(bits, difficulty int) (*Identity, error) {
 	return &Identity{id, pubKey, privKey}, nil
 }
 
-func saveLocalKey(key crypto.Key, path string) error {
-	b, err := key.Bytes()
+const identityFilename = "identity.pem"
+
+// SaveLocalIdentity saves the local identity in the specified directory.
+func SaveLocalIdentity(iden *Identity, directory string) error {
+	path := path.Join(directory, identityFilename)
+	keyBytes, err := iden.PrivKey.Bytes()
 	if err != nil {
 		return err
 	}
-	b64 := encode.Base64Encode(b)
-	err = ioutil.WriteFile(path, b64, 0600)
+	data := pem.EncodeToMemory(
+		&pem.Block{
+			Type:  "RSA PRIVATE KEY",
+			Bytes: keyBytes,
+		},
+	)
+	err = ioutil.WriteFile(path, data, 0600)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-// Saves local identity keys in directory/{private_key,public_key}.
-func SaveLocalIdentity(iden *Identity, directory string) error {
-	if err := utils.EnsureDirExists(directory, false); err != nil {
-		return err
+// LoadLocalIdentity loads the local identity from the specified directory.
+func LoadLocalIdentity(directory string) (*Identity, error) {
+	path := path.Join(directory, identityFilename)
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
 	}
 
-	privPath := path.Join(directory, "private_key")
-	if err := saveLocalKey(iden.PrivKey, privPath); err != nil {
-		return err
+	block, _ := pem.Decode(data)
+	privKey, err := crypto.NewPrivateKey(block.Bytes)
+	if err != nil {
+		return nil, err
 	}
 
-	pubPath := path.Join(directory, "public_key")
-	if err := saveLocalKey(iden.PubKey, pubPath); err != nil {
-		return err
+	pubKey := privKey.PublicKey()
+	hash, err := pubKey.Hash()
+	if err != nil {
+		return nil, err
 	}
 
-	return nil
+	iden := Identity{
+		PrivKey: privKey,
+		PubKey:  pubKey,
+		Id:      hash,
+	}
+	return &iden, nil
 }
