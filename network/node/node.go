@@ -1,6 +1,7 @@
 package node
 
 import (
+	"bytes"
 	"encoding/pem"
 	"fmt"
 	"github.com/boreq/netblog/crypto"
@@ -16,7 +17,16 @@ type Identity struct {
 	PrivKey crypto.PrivateKey
 }
 
+type NodeInfo struct {
+	Id      ID
+	Address string
+}
+
 const minKeyBits = 2048
+
+func CompareId(a ID, b ID) bool {
+	return bytes.Compare(a, b) == 0
+}
 
 // Generates a fresh identity (keypair) for a local node.
 func GenerateIdentity(bits, difficulty int) (*Identity, error) {

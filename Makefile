@@ -6,7 +6,13 @@ build:
 run:
 	./main/main
 
+test:
+	go test ./...
+
+proto:
+	protoc --proto_path="protocol/proto" --go_out="protocol/message" protocol/proto/message.proto
+
 clean:
 	rm -f ./main/main
 
-.PHONY: build run clean
+.PHONY: build run test proto clean

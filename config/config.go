@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"errors"
+	"github.com/boreq/netblog/network/node"
 	"io/ioutil"
 	"os"
 	"os/user"
@@ -11,8 +12,9 @@ import (
 
 // This part of the config structure is saved in the config file in JSON format.
 type savedConfig struct {
-	ListenAddress string
-	LocalAddress  string
+	ListenAddress  string
+	LocalAddress   string
+	BootstrapNodes []node.NodeInfo
 }
 
 // Full config struct.

@@ -17,6 +17,7 @@ var MainCmd = cli.Command{
 		return cli.ErrInvalidParms
 	},
 	Subcommands: map[string]*cli.Command{
+		"daemon": &daemonCmd,
 		"init": &initCmd,
 	},
 	ShortDescription: "distributed blogging platform",
@@ -24,4 +25,3 @@ var MainCmd = cli.Command{
 `Main command decription.
 Second line.`,
 }
-

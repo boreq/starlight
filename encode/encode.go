@@ -9,8 +9,11 @@ func Base64Encode(data []byte) []byte {
 	return rw
 }
 
-func Base64Decode(data []byte) []byte {
-	rw := make([]byte, 0)
-	base64.StdEncoding.Decode(rw, data)
-	return rw
+func Base64Decode(data []byte) ([]byte, error) {
+	rw := make([]byte, base64.StdEncoding.DecodedLen(len(data)))
+	n, err := base64.StdEncoding.Decode(rw, data)
+	if err != nil {
+		return nil, err
+	}
+	return rw[:n], nil
 }

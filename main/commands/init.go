@@ -7,7 +7,6 @@ import (
 	"github.com/boreq/netblog/network/node"
 	"github.com/boreq/netblog/utils"
 	"os"
-	"path"
 )
 
 var initCmd = cli.Command{
@@ -54,8 +53,7 @@ func runInit(c cli.Context) error {
 	if err != nil {
 		return err
 	}
-	identityDir := path.Join(config.GetDir(), "identity")
-	if err := node.SaveLocalIdentity(iden, identityDir); err != nil {
+	if err := node.SaveLocalIdentity(iden, config.GetDir()); err != nil {
 		return err
 	}
 

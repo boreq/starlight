@@ -1,0 +1,3 @@
+message Init {
+    required bytes PubKey = 1;
+}
