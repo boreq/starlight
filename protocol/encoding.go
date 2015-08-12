@@ -4,7 +4,12 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"github.com/boreq/netblog/utils"
 )
+
+func Marshal(msg Message) ([]byte, error) {
+	return encodeMessage(msg)
+}
 
 func NewUnmarshaler(c chan<- Message) Unmarshaler {
 	u := &unmarshaler{
@@ -24,7 +29,7 @@ func encodeMessage(msg Message) ([]byte, error) {
 	if err := binary.Write(b, binary.BigEndian, cmd); err != nil {
 		return nil, err
 	}
-	if err := binary.Write(b, binary.BigEndian, len(msg.Payload)); err != nil {
+	if err := binary.Write(b, binary.BigEndian, uint32(len(msg.Payload))); err != nil {
 		return nil, err
 	}
 	b.Write(msg.Payload)
@@ -87,32 +92,41 @@ func (u *unmarshaler) Write(d []byte) (int, error) {
 
 const msgHeaderSize = 8
 
+var umLog = utils.Logger("Unmarshaller")
+
 func (u *unmarshaler) process() {
 	for {
-		if u.buf.Len() >= msgHeaderSize {
-			// Read header.
-			h, err := readMsgHeader(u.buf.Bytes()[:msgHeaderSize])
-			if err != nil {
-				panic(err)
-			}
-
-			// Do we have enough data?
-			totalSize := h.Size + msgHeaderSize
-			if uint32(u.buf.Len()) < totalSize {
-				return
-			}
-
-			// Decode.
-			cmd, err := decodeCommand(h.Command)
-			trash := make([]byte, 8)
-			u.buf.Read(trash)
-			payload := make([]byte, h.Size)
-			u.buf.Read(payload)
-			msg := Message{
-				Command: cmd,
-				Payload: payload,
-			}
-			u.c <- msg
+		// Do we have enough data to read header?
+		if u.buf.Len() < msgHeaderSize {
+			return
 		}
+
+		// Read header.
+		h, err := readMsgHeader(u.buf.Bytes()[:msgHeaderSize])
+		if err != nil {
+			umLog.Print("Failed to read message header, panic")
+			panic(err)
+		}
+
+		// Do we have enough data to read entire message?
+		totalSize := h.Size + msgHeaderSize
+		if uint32(u.buf.Len()) < totalSize {
+			return
+		}
+
+		// Decode.
+		cmd, err := decodeCommand(h.Command)
+		trash := make([]byte, 8)
+		u.buf.Read(trash)
+		payload := make([]byte, h.Size)
+		u.buf.Read(payload)
+		msg := Message{
+			Command: cmd,
+			Payload: payload,
+		}
+		// TODO
+		go func() {
+			u.c <- msg
+		}()
 	}
 }

@@ -2,6 +2,7 @@ package node
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/pem"
 	"fmt"
 	"github.com/boreq/netblog/crypto"
@@ -10,6 +11,31 @@ import (
 )
 
 type ID []byte
+
+func (id ID) String() string {
+	return hex.EncodeToString(id)
+}
+
+func (id ID) MarshalJSON() ([]byte, error) {
+	buf := bytes.Buffer{}
+	buf.WriteRune('"')
+	buf.WriteString(id.String())
+	buf.WriteRune('"')
+	return buf.Bytes(), nil
+}
+
+func (id ID) UnmarshalJSON(data []byte) error {
+	decId, err := hex.DecodeString(string(data[1 : len(data)-1]))
+	if err != nil {
+		return err
+	}
+	id = decId
+	return nil
+}
+
+func NewId(id string) (ID, error) {
+	return hex.DecodeString(id)
+}
 
 type Identity struct {
 	Id      ID

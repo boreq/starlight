@@ -3,13 +3,14 @@ package network
 import (
 	"errors"
 	"github.com/boreq/netblog/network/node"
-	"github.com/boreq/netblog/protocol"
-	"github.com/boreq/netblog/protocol/message"
+	"github.com/boreq/netblog/utils"
 	"golang.org/x/net/context"
 	"net"
 	"sync"
 	"time"
 )
+
+var log = utils.Logger("network")
 
 var differentNodeIdError = errors.New("Peer under this address has a different id than requested")
 
@@ -43,6 +44,7 @@ func (n *network) Listen(address string) error {
 	// Make sure to close the listener after the context is closed.
 	go func() {
 		<-n.ctx.Done()
+		log.Print("Context closed, closing listener")
 		listener.Close()
 	}()
 
@@ -53,6 +55,7 @@ func (n *network) Listen(address string) error {
 			if err != nil {
 				return
 			}
+			log.Print("New incoming connection from %s", conn.RemoteAddr().String())
 			go n.newConnection(n.ctx, conn)
 		}
 	}()
@@ -62,64 +65,76 @@ func (n *network) Listen(address string) error {
 
 // Initiates a new connection (incoming or outgoing).
 func (n *network) newConnection(ctx context.Context, conn net.Conn) (*peer, error) {
-	p := newPeer(ctx, conn)
+	log.Print("newConnection")
 
-	// Perform hanshake.
-	err := handshake(n.iden, p)
+	newP, err := newPeer(ctx, n.iden, conn)
 	if err != nil {
-		p.Close()
+		log.Print("newConnection: failed to init a peer", err)
 		return nil, err
 	}
 
-	// Add peer to the list, if we are already talking terminate the
-	// connection.
+	// If we are already communicating with this node, return the peer we
+	// already have and terminate the new one.
 	n.plock.Lock()
 	defer n.plock.Unlock()
-	_, err = n.findActive(p.Id)
+	p, err := n.findActive(newP.Id)
 	if err == nil {
-		p.Close()
-		return nil, err
+		log.Print("newConnection we already have this peer")
+		newP.Close()
+		return p, err
 	}
+
 	n.peers = append(n.peers, p)
 
 	// Run dispatcher to be able to receive messages from all peers easily.
 	go func() {
 		for {
-			select {
-			case <-p.ctx.Done():
+			msg, ok := <-newP.In()
+			if !ok {
+				log.Print("disp goroutine CHANNEL CLOSED")
 				return
-			case msg := <-p.In:
-				n.disp.Dispatch(p, msg)
 			}
+			log.Print("disp goroutine dispatching")
+			n.disp.Dispatch(newP, msg)
 		}
 	}()
 
-	return p, nil
+	return newP, nil
 }
 
 func (n *network) Dial(nd node.NodeInfo) (Peer, error) {
+	log.Printf("Dial: %s on %s", nd.Id, nd.Address)
+
 	// Try to return an already existing peer.
 	n.plock.Lock()
 	p, err := n.findActive(nd.Id)
 	n.plock.Unlock()
 	if err == nil {
+		log.Printf("Dial: already connected to %s", nd.Id)
 		return p, nil
 	}
+
+	log.Printf("Dial: NOT already connected to %s", nd.Id)
 
 	// Dial a peer if we are not already talking to it.
 	conn, err := net.DialTimeout("tcp", nd.Address, 10*time.Second)
 	if err != nil {
+		log.Printf("Dial: failed to dial %s", nd.Id)
 		return nil, err
 	}
 	p, err = n.newConnection(n.ctx, conn)
 	if err != nil {
+		log.Printf("Dial: failed to init connection %s", nd.Id)
 		return nil, err
 	}
 
 	// Return an error if the id doesn't match but return the peer anyway.
 	if !node.CompareId(nd.Id, p.Id) {
+		log.Print("Dial: different node id, will warn")
+		log.Printf("%x <-> %x", nd.Id, p.Id)
 		return p, differentNodeIdError
 	} else {
+		log.Print("Dial: good node id")
 		return p, nil
 	}
 }
@@ -131,22 +146,4 @@ func (n *network) findActive(id node.ID) (*peer, error) {
 		}
 	}
 	return nil, errors.New("Peer not found")
-}
-
-func handshake(iden node.Identity, p *peer) error {
-	pubKeyBytes, err := iden.PubKey.Bytes()
-	if err != nil {
-		return err
-	}
-
-	init := &message.Init{
-		PubKey: pubKeyBytes,
-	}
-	msg, err := protocol.Marshal(protocol.Init, init)
-	if err != nil {
-		return err
-	}
-
-	p.Out <- *msg
-	return nil
 }

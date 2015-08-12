@@ -65,12 +65,29 @@ func GetDir() string {
 	return path.Join(user.HomeDir, ".netblog")
 }
 
+func getDefaultBootstrap() []node.NodeInfo {
+	def := map[string]string{
+		"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855": "address:1836",
+	}
+
+	var rw []node.NodeInfo
+	for id, address := range def {
+		nodeId, err := node.NewId(id)
+		if err == nil {
+			rw = append(rw, node.NodeInfo{nodeId, address})
+		}
+	}
+	return rw
+}
+
 // Returns a config filled with default values.
 func Default() *Config {
+
 	conf := &Config{
 		savedConfig{
-			ListenAddress: ":1836",
-			LocalAddress:  "/tmp/netblog.socket",
+			ListenAddress:  ":1836",
+			LocalAddress:   "/tmp/netblog.socket",
+			BootstrapNodes: getDefaultBootstrap(),
 		},
 	}
 	return conf

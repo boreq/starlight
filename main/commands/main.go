@@ -5,8 +5,8 @@ import "github.com/boreq/netblog/cli"
 var MainCmd = cli.Command{
 	Options: []cli.Option{
 		cli.Option{
-			Name: "version",
-			Type: cli.Bool,
+			Name:        "version",
+			Type:        cli.Bool,
 			Description: "Display version",
 		},
 	},
@@ -17,11 +17,11 @@ var MainCmd = cli.Command{
 		return cli.ErrInvalidParms
 	},
 	Subcommands: map[string]*cli.Command{
-		"daemon": &daemonCmd,
-		"init": &initCmd,
+		"daemon":   &daemonCmd,
+		"init":     &initCmd,
+		"identity": &identityCmd,
 	},
 	ShortDescription: "distributed blogging platform",
-	Description:
-`Main command decription.
+	Description: `Main command decription.
 Second line.`,
 }

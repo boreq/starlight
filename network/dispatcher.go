@@ -64,10 +64,15 @@ func (d *dispatcher) Subscribe() (chan IncomingMessage, CancelFunc) {
 }
 
 func (d *dispatcher) Dispatch(p Peer, msg protocol.Message) {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	incMsg := IncomingMessage{
 		p.Info(),
 		msg,
 	}
+
+	log.Printf("Dispatching message from %s", incMsg.Id)
 
 	for _, sub := range d.subs {
 		go func() {

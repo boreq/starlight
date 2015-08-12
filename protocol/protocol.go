@@ -24,7 +24,7 @@ type Unmarshaler interface {
 	Write([]byte) (int, error)
 }
 
-func Marshal(msgCommand MessageCommand, msg proto.Message) (*Message, error) {
+func NewMessage(msgCommand MessageCommand, msg proto.Message) (*Message, error) {
 	data, err := proto.Marshal(msg)
 	if err != nil {
 		return nil, err

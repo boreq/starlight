@@ -3,9 +3,11 @@ package dht
 import (
 	"github.com/boreq/netblog/network"
 	"github.com/boreq/netblog/network/node"
+	"github.com/boreq/netblog/utils"
 	"golang.org/x/net/context"
-	"log"
 )
+
+var log = utils.Logger("dht")
 
 // System-wide replication parameter.
 const k = 20
@@ -29,27 +31,35 @@ type dht struct {
 }
 
 func (d *dht) Init(nodes []node.NodeInfo, address string) error {
+	log.Printf("Subscribing to messages and running SubGoroutine")
 	c, cancel := d.net.Subscribe()
 	go func() {
-		defer cancel()
+		defer func() {
+			log.Print("SubGoroutine close subscription")
+			cancel()
+		}()
 		for {
 			select {
 			case msg := <-c:
-				d.rt.Update(msg.Id, msg.Address)
+				log.Printf("SubGoroutine received message from %s", msg.Id)
+				//d.rt.Update(msg.Id, msg.Address)
 			case <-d.ctx.Done():
+				log.Print("SubGoroutine context closed")
 				return
 			}
 		}
 	}()
 
+	log.Printf("Starting network on %s", address)
 	err := d.net.Listen(address)
 	if err != nil {
 		return err
 	}
 
+	log.Print("Initializing")
 	for _, nodeInfo := range nodes {
-		p, err := d.net.Dial(nodeInfo)
-		log.Printf("DHT init, p: %s err: %s", p, err)
+		_, err := d.net.Dial(nodeInfo)
+		log.Printf("Dial %s on %s, err: %s", nodeInfo.Id, nodeInfo.Address, err)
 	}
 	//d.FindNode(d.self)
 	return nil
