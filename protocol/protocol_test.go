@@ -2,51 +2,33 @@ package protocol
 
 import (
 	"errors"
-	"github.com/boreq/netblog/protocol/message"
 	"testing"
+	"time"
 )
 
-func TestMarshal(t *testing.T) {
-	m, err := NewMessage(Init, &message.Init{
-		PubKey: make([]byte, 0),
-	})
+func TestMarshalUnmarshal(t *testing.T) {
+	data := []byte("testing")
+	b, err := Marshal(data)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	b, err := Marshal(*m)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Log("len", len(b))
-}
-
-func TestDual(t *testing.T) {
-	m, err := NewMessage(Init, &message.Init{
-		PubKey: make([]byte, 0),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	b, err := Marshal(*m)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	c := make(chan Message)
+	c := make(chan []byte)
 	e := make(chan error)
 	u := NewUnmarshaler(c)
 	u.Write(b)
 	go func() {
 		select {
-		case msg, ok := <-c:
+		case payload, ok := <-c:
 			if !ok {
 				e <- errors.New("Channel closed")
+			} else {
+				if len(payload) != len(data) {
+					t.Fatal("Invalid length received")
+				}
 			}
-			t.Log(len(msg.Payload))
 			close(e)
-		default:
+		case <-time.After(1 * time.Second):
 			e <- errors.New("Did not return a message")
 		}
 	}()
