@@ -1,7 +1,5 @@
 package crypto
 
-import "encoding/hex"
-
 type Key interface {
 	Bytes() ([]byte, error)
 	Hash() ([]byte, error)
@@ -16,6 +14,12 @@ type PublicKey interface {
 	Key
 }
 
-func EncodeHex(data []byte) string {
-	return hex.EncodeToString(data)
+type EphemeralKey interface {
+	// Bytes returns the public key bytes in a format suitable to be used by
+	// GenerateSharedSecret method.
+	Bytes() ([]byte, error)
+
+	// GenerateSharedSecret generates a shared secret using the public key
+	// bytes received from the second party.
+	GenerateSharedSecret([]byte) ([]byte, error)
 }
