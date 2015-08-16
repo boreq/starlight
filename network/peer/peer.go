@@ -8,15 +8,12 @@ import (
 	"github.com/boreq/netblog/protocol"
 	"github.com/boreq/netblog/protocol/encoder"
 	"github.com/boreq/netblog/protocol/message"
-	"github.com/boreq/netblog/utils"
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/context"
 	"io"
 	"net"
 	"time"
 )
-
-var handshakeTimeout = 5 * time.Second
 
 type Peer interface {
 	// Returns information about the node.
@@ -54,15 +51,12 @@ func New(ctx context.Context, iden node.Identity, conn net.Conn) (Peer, error) {
 
 	_, err := handshake(iden, p)
 	if err != nil {
-		log.Print("Handshake error")
 		p.Close()
 		return nil, err
 	}
 
 	return p, nil
 }
-
-var log = utils.Logger("network")
 
 type peer struct {
 	id      node.ID
@@ -91,7 +85,6 @@ func (p *peer) Closed() bool {
 }
 
 func (p *peer) Close() {
-	log.Printf("%x close", p.id)
 	p.cancel()
 	p.conn.Close()
 }
@@ -104,7 +97,7 @@ func (p *peer) Send(msg proto.Message) error {
 	return p.send(data)
 }
 
-// Send raw message to the peer.
+// send sends a raw message to the peer.
 func (p *peer) send(data []byte) error {
 	select {
 	case p.out <- data:
@@ -114,6 +107,8 @@ func (p *peer) send(data []byte) error {
 	}
 }
 
+// sendWithContext sends a raw message to the peer but returns with an error
+// when ctx is closed.
 func (p *peer) sendWithContext(ctx context.Context, data []byte) error {
 	var err error
 
@@ -145,7 +140,7 @@ func (p *peer) Receive() (proto.Message, error) {
 	return p.encoder.Decode(data)
 }
 
-// Receives raw message from the peer.
+// receive receives a raw message from the peer.
 func (p *peer) receive() ([]byte, error) {
 	select {
 	case data, ok := <-p.in:
@@ -158,6 +153,8 @@ func (p *peer) receive() ([]byte, error) {
 	}
 }
 
+// receiveWithContext receives a raw message to the peer but returns with an
+// error when ctx is closed.
 func (p *peer) receiveWithContext(ctx context.Context) (data []byte, err error) {
 	// Again, this is a bug.
 	c := make(chan error)
@@ -180,7 +177,8 @@ func (p *peer) receiveWithContext(ctx context.Context) (data []byte, err error) 
 type cancelFunc func()
 
 // Receives messages from a peer and sends them into the channel. In case of
-// error the channel is closed.
+// error the cancel func is called (which can for example close the underlying
+// connnection or perform other cleanup).
 func receiveFromPeer(ctx context.Context, in chan<- []byte, reader io.Reader, cancel cancelFunc) {
 	unmarshaler := protocol.NewUnmarshaler(ctx, in)
 	buf := make([]byte, 1024)
@@ -188,13 +186,10 @@ func receiveFromPeer(ctx context.Context, in chan<- []byte, reader io.Reader, ca
 	for {
 		select {
 		case <-ctx.Done():
-			log.Print("receiveFromPeer context done")
 			return
 		default:
 			n, err := reader.Read(buf)
-			log.Printf("receiveFromPeer %d bytes", n)
 			if err != nil {
-				log.Printf("receiveFromPeer error %s", err)
 				cancel()
 				return
 			}
@@ -209,24 +204,21 @@ func sendToPeer(ctx context.Context, out <-chan []byte, writer io.Writer) {
 	for {
 		select {
 		case <-ctx.Done():
-			log.Print("sendToPeer context done")
 			return
 		case data := <-out:
-			log.Print("sendToPeer sending message")
 			buf.Reset()
 			data, err := protocol.Marshal(data)
 			if err != nil {
-				log.Print("sendToPeer error", err)
 				continue
 			}
 			buf.Write(data)
 			buf.WriteTo(writer)
-			log.Print("sendToPeer sent message")
 		}
 	}
 }
 
 var handshakeErr = errors.New("Handshake error")
+var handshakeTimeout = 5 * time.Second
 
 // Performs a handshake and returns a secure encoder. Sets p.id.
 func handshake(iden node.Identity, p *peer) (encoder.Encoder, error) {
