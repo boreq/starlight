@@ -1,3 +1,4 @@
 message Init {
     required bytes PubKey = 1;
+    required bytes EphemeralPubKey = 2;
 }

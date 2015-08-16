@@ -1,7 +1,7 @@
 package network
 
 import (
-	"github.com/boreq/netblog/protocol"
+	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/context"
 	"sync"
 )
@@ -18,7 +18,7 @@ type Dispatcher interface {
 
 	// Dispatch forwards a message to all channels retrieved using the
 	// subscribe method.
-	Dispatch(Peer, protocol.Message)
+	Dispatch(Peer, proto.Message)
 }
 
 func NewDispatcher(ctx context.Context) Dispatcher {
@@ -63,7 +63,7 @@ func (d *dispatcher) Subscribe() (chan IncomingMessage, CancelFunc) {
 	return sub.C, cancel
 }
 
-func (d *dispatcher) Dispatch(p Peer, msg protocol.Message) {
+func (d *dispatcher) Dispatch(p Peer, msg proto.Message) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 

@@ -4,16 +4,19 @@ import (
 	"bytes"
 	"encoding/binary"
 	"github.com/boreq/netblog/utils"
+	"golang.org/x/net/context"
 )
 
-func NewUnmarshaler(c chan<- []byte) Unmarshaler {
+func NewUnmarshaler(ctx context.Context, c chan<- []byte) Unmarshaler {
 	u := &unmarshaler{
-		c: c,
+		ctx: ctx,
+		c:   c,
 	}
 	return u
 }
 
 type unmarshaler struct {
+	ctx context.Context
 	c   chan<- []byte
 	buf bytes.Buffer
 }
@@ -50,14 +53,15 @@ func (u *unmarshaler) process() {
 		}
 
 		// Decode.
-		trash := make([]byte, 8)
+		trash := make([]byte, msgHeaderSize)
 		u.buf.Read(trash)
 		payload := make([]byte, size)
 		u.buf.Read(payload)
-		// TODO
-		go func() {
-			u.c <- payload
-		}()
+
+		select {
+		case u.c <- payload:
+		case <-u.ctx.Done():
+		}
 	}
 }
 

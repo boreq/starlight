@@ -2,14 +2,14 @@ package network
 
 import (
 	"github.com/boreq/netblog/network/node"
-	"github.com/boreq/netblog/protocol"
+	"github.com/golang/protobuf/proto"
 )
 
 // Since all incoming messages are passed on the same channel they must be
 // bundled with a node.ID.
 type IncomingMessage struct {
 	node.NodeInfo
-	protocol.Message
+	proto.Message
 }
 
 // Network is used to exchange messages with other nodes participating in the
@@ -26,10 +26,11 @@ type Network interface {
 	Subscribe() (chan IncomingMessage, CancelFunc)
 }
 
+// Peer strips certain methods from peer.Peer.
 type Peer interface {
 	// Returns information about the peer.
 	Info() node.NodeInfo
 
 	// Sends a message to a node.
-	Send(protocol.Message) error
+	Send(proto.Message) error
 }

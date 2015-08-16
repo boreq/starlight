@@ -22,6 +22,7 @@ var _ = math.Inf
 
 type Init struct {
 	PubKey           []byte `protobuf:"bytes,1,req" json:"PubKey,omitempty"`
+	EphemeralPubKey  []byte `protobuf:"bytes,2,req" json:"EphemeralPubKey,omitempty"`
 	XXX_unrecognized []byte `json:"-"`
 }
 
@@ -32,6 +33,13 @@ func (*Init) ProtoMessage()    {}
 func (m *Init) GetPubKey() []byte {
 	if m != nil {
 		return m.PubKey
+	}
+	return nil
+}
+
+func (m *Init) GetEphemeralPubKey() []byte {
+	if m != nil {
+		return m.EphemeralPubKey
 	}
 	return nil
 }

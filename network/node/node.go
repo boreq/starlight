@@ -16,7 +16,7 @@ func (id ID) String() string {
 	return hex.EncodeToString(id)
 }
 
-func (id ID) MarshalJSON() ([]byte, error) {
+func (id *ID) MarshalJSON() ([]byte, error) {
 	buf := bytes.Buffer{}
 	buf.WriteRune('"')
 	buf.WriteString(id.String())
@@ -24,12 +24,14 @@ func (id ID) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (id ID) UnmarshalJSON(data []byte) error {
+func (id *ID) UnmarshalJSON(data []byte) error {
 	decId, err := hex.DecodeString(string(data[1 : len(data)-1]))
 	if err != nil {
 		return err
 	}
-	id = decId
+	// I don't even...
+	newId := ID(decId)
+	*id = newId
 	return nil
 }
 

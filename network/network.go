@@ -3,6 +3,7 @@ package network
 import (
 	"errors"
 	"github.com/boreq/netblog/network/node"
+	"github.com/boreq/netblog/network/peer"
 	"github.com/boreq/netblog/utils"
 	"golang.org/x/net/context"
 	"net"
@@ -26,7 +27,7 @@ func New(ctx context.Context, ident node.Identity) Network {
 type network struct {
 	ctx   context.Context
 	iden  node.Identity
-	peers []*peer
+	peers []peer.Peer
 	plock sync.Mutex
 	disp  Dispatcher
 }
@@ -64,10 +65,8 @@ func (n *network) Listen(address string) error {
 }
 
 // Initiates a new connection (incoming or outgoing).
-func (n *network) newConnection(ctx context.Context, conn net.Conn) (*peer, error) {
-	log.Print("newConnection")
-
-	newP, err := newPeer(ctx, n.iden, conn)
+func (n *network) newConnection(ctx context.Context, conn net.Conn) (peer.Peer, error) {
+	p, err := peer.New(ctx, n.iden, conn)
 	if err != nil {
 		log.Print("newConnection: failed to init a peer", err)
 		return nil, err
@@ -77,11 +76,11 @@ func (n *network) newConnection(ctx context.Context, conn net.Conn) (*peer, erro
 	// already have and terminate the new one.
 	n.plock.Lock()
 	defer n.plock.Unlock()
-	p, err := n.findActive(newP.Id)
+	existingPeer, err := n.findActive(p.Info().Id)
 	if err == nil {
 		log.Print("newConnection we already have this peer")
-		newP.Close()
-		return p, err
+		p.Close()
+		return existingPeer, err
 	}
 
 	n.peers = append(n.peers, p)
@@ -89,17 +88,18 @@ func (n *network) newConnection(ctx context.Context, conn net.Conn) (*peer, erro
 	// Run dispatcher to be able to receive messages from all peers easily.
 	go func() {
 		for {
-			msg, ok := <-newP.In()
-			if !ok {
-				log.Print("disp goroutine CHANNEL CLOSED")
+			msg, err := p.Receive()
+			if err != nil {
+				log.Print("disp goroutine error", err)
 				return
 			}
 			log.Print("disp goroutine dispatching")
-			n.disp.Dispatch(newP, msg)
+			n.disp.Dispatch(p, msg)
 		}
 	}()
 
-	return newP, nil
+	log.Print("newConnection done with ", p.Info().Id)
+	return p, nil
 }
 
 func (n *network) Dial(nd node.NodeInfo) (Peer, error) {
@@ -129,9 +129,9 @@ func (n *network) Dial(nd node.NodeInfo) (Peer, error) {
 	}
 
 	// Return an error if the id doesn't match but return the peer anyway.
-	if !node.CompareId(nd.Id, p.Id) {
+	if !node.CompareId(nd.Id, p.Info().Id) {
 		log.Print("Dial: different node id, will warn")
-		log.Printf("%x <-> %x", nd.Id, p.Id)
+		log.Printf("%s <-> %s", nd.Id, p.Info().Id)
 		return p, differentNodeIdError
 	} else {
 		log.Print("Dial: good node id")
@@ -139,11 +139,17 @@ func (n *network) Dial(nd node.NodeInfo) (Peer, error) {
 	}
 }
 
-func (n *network) findActive(id node.ID) (*peer, error) {
-	for _, p := range n.peers {
-		if node.CompareId(p.Id, id) {
-			return p, nil
+func (n *network) findActive(id node.ID) (peer.Peer, error) {
+	for i := len(n.peers) - 1; i >= 0; i-- {
+		if n.peers[i].Closed() {
+			log.Print("dropped %s", n.peers[i].Info().Id)
+			n.peers = append(n.peers[:i], n.peers[i+1:]...)
+		} else {
+			if node.CompareId(n.peers[i].Info().Id, id) {
+				return n.peers[i], nil
+			}
 		}
 	}
+
 	return nil, errors.New("Peer not found")
 }
