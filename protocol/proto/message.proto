@@ -1,4 +1,16 @@
 message Init {
     required bytes PubKey = 1;
-    required bytes EphemeralPubKey = 2;
+    required bytes Nonce = 2;
+    required string SupportedCurves = 3;
+    required string SupportedHashes = 4;
+    required string SupportedCiphers = 5;
+}
+
+message Handshake {
+    required bytes EphemeralPubKey = 1;
+}
+
+message ConfirmHandshake {
+    required bytes Nonce = 1;
+    required bytes Signature = 2;
 }

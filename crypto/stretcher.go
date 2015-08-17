@@ -1,6 +1,7 @@
 package crypto
 
 import (
+	"crypto/aes"
 	"errors"
 	"golang.org/x/crypto/pbkdf2"
 )
@@ -24,10 +25,10 @@ func StretchKey(secret, salt []byte, hashName, cipherName string) (a, b Stretche
 	switch cipherName {
 	case "AES-256":
 		keySize = 32
-		blockSize = 16
+		blockSize = aes.BlockSize
 	case "AES-128":
 		keySize = 16
-		blockSize = 16
+		blockSize = aes.BlockSize
 	default:
 		err = errors.New("Invalid cipher name")
 		return

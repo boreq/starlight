@@ -16,10 +16,8 @@
 //
 // Secure mode payload structure:
 //     LEN      TYPE      DESCRIPTION
-//     4        uint32    HMAC.
-//     4        uint32    Random nonce.
-//     4        uint32    Type of the message.
-//     size-12  []byte    Protobuf encoded message.
+//     ?        []byte    HMAC, length depends on hash type.
+//     size-?   []byte    Encrypted basic mode payload.
 package protocol
 
 import (

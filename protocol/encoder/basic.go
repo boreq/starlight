@@ -51,6 +51,10 @@ func (b *basic) Decode(data []byte) (proto.Message, error) {
 	switch cmd {
 	case 1:
 		msg = &message.Init{}
+	case 2:
+		msg = &message.Handshake{}
+	case 3:
+		msg = &message.ConfirmHandshake{}
 	default:
 		return nil, errors.New("Unknown message type")
 	}

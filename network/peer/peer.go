@@ -8,10 +8,12 @@ import (
 	"github.com/boreq/netblog/protocol"
 	"github.com/boreq/netblog/protocol/encoder"
 	"github.com/boreq/netblog/protocol/message"
+	"github.com/boreq/netblog/utils"
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/context"
 	"io"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -49,8 +51,9 @@ func New(ctx context.Context, iden node.Identity, conn net.Conn) (Peer, error) {
 	p.out = make(chan []byte)
 	go sendToPeer(p.ctx, p.out, p.conn)
 
-	_, err := handshake(iden, p)
+	err := p.handshake(iden)
 	if err != nil {
+		log.Print("Handshake error ", err)
 		p.Close()
 		return nil, err
 	}
@@ -217,63 +220,244 @@ func sendToPeer(ctx context.Context, out <-chan []byte, writer io.Writer) {
 	}
 }
 
-var handshakeErr = errors.New("Handshake error")
-var handshakeTimeout = 5 * time.Second
+// selectParam
+func selectParam(a, b string) string {
+	sA := strings.Split(a, ",")
+	sB := strings.Split(b, ",")
+	for _, pA := range sA {
+		for _, pB := range sB {
+			if pA == pB {
+				return pA
+			}
+		}
+	}
+	return ""
+}
 
-// Performs a handshake and returns a secure encoder. Sets p.id.
-func handshake(iden node.Identity, p *peer) (encoder.Encoder, error) {
+var handshakeTimeout = 5 * time.Second
+var nonceSize = 20
+var log = utils.Logger("handshake")
+
+// The ride never ends. Performs a handshake, sets up a secure encoder and peer
+// id.
+func (p *peer) handshake(iden node.Identity) error {
 	ctx, cancel := context.WithTimeout(p.ctx, handshakeTimeout)
 	defer cancel()
 
-	// Form Init message.
-	ephemeralKey, err := crypto.GenerateEphemeralKeypair("P224")
-	if err != nil {
-		return nil, err
-	}
+	//
+	// === EXCHANGE INIT MESSAGES ===
+	//
 
+	// Form an Init message.
 	pubKeyBytes, err := iden.PubKey.Bytes()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	ephemeralKeyBytes, err := ephemeralKey.Bytes()
+	localNonce := make([]byte, nonceSize)
+	err = crypto.GenerateNonce(localNonce)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	localInit := &message.Init{
-		PubKey:          pubKeyBytes,
-		EphemeralPubKey: ephemeralKeyBytes,
+		PubKey:           pubKeyBytes,
+		Nonce:            localNonce,
+		SupportedCurves:  &crypto.SupportedCurves,
+		SupportedHashes:  &crypto.SupportedHashes,
+		SupportedCiphers: &crypto.SupportedCiphers,
 	}
 
 	// Send Init message.
 	data, err := p.encoder.Encode(localInit)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	err = p.sendWithContext(ctx, data)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// Receive Init message.
 	data, err = p.receiveWithContext(ctx)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	msg, err := p.encoder.Decode(data)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	remoteInit, ok := msg.(*message.Init)
 	if !ok {
-		return nil, handshakeErr
+		return errors.New("The received message is not Init")
 	}
 
-	// Process Init message.
-	remotePub, err := crypto.NewPublicKey(remoteInit.PubKey)
-	remoteId, err := remotePub.Hash()
-	p.id = remoteId
+	//
+	// === PROCESS INIT MESSAGES ===
+	//
 
-	return encoder.NewBasic(), nil
+	// Establish identity.
+	remotePub, err := crypto.NewPublicKey(remoteInit.GetPubKey())
+	if err != nil {
+		return err
+	}
+	remoteId, err := remotePub.Hash()
+	if err != nil {
+		return err
+	}
+
+	// Fail if the node id is the same.
+	if node.CompareId(remoteId, iden.Id) {
+		return errors.New("Peer claims to have the same id")
+	}
+
+	// Choose encryption params.
+	var selectedCurve, selectedHash, selectedCipher string
+	// We need everything to be perfomed the same way on both sides.
+	order, err := utils.Compare(iden.Id, remoteId)
+	if order > 0 {
+		selectedCurve = selectParam(crypto.SupportedCurves, remoteInit.GetSupportedCurves())
+		selectedHash = selectParam(crypto.SupportedHashes, remoteInit.GetSupportedHashes())
+		selectedCipher = selectParam(crypto.SupportedCiphers, remoteInit.GetSupportedCiphers())
+	} else {
+		selectedCurve = selectParam(remoteInit.GetSupportedCurves(), crypto.SupportedCurves)
+		selectedHash = selectParam(remoteInit.GetSupportedHashes(), crypto.SupportedHashes)
+		selectedCipher = selectParam(remoteInit.GetSupportedCiphers(), crypto.SupportedCiphers)
+	}
+
+	if selectedCurve == "" || selectedHash == "" || selectedCipher == "" {
+		return errors.New("Selection error")
+	}
+
+	//
+	// === EXCHANGE HANDSHAKE MESSAGES ===
+	//
+
+	// Generate ephemeral key.
+	ephemeralKey, err := crypto.GenerateEphemeralKeypair(selectedCurve)
+	if err != nil {
+		return err
+	}
+
+	// Form Handshake message.
+	localEphemeralKeyBytes, err := ephemeralKey.Bytes()
+	if err != nil {
+		return err
+	}
+
+	localHandshake := &message.Handshake{
+		EphemeralPubKey: localEphemeralKeyBytes,
+	}
+
+	// Send Handshake message.
+	data, err = p.encoder.Encode(localHandshake)
+	if err != nil {
+		return err
+	}
+	err = p.sendWithContext(ctx, data)
+	if err != nil {
+		return err
+	}
+
+	// Receive Handshake message.
+	data, err = p.receiveWithContext(ctx)
+	if err != nil {
+		return err
+	}
+	msg, err = p.encoder.Decode(data)
+	if err != nil {
+		return err
+	}
+	remoteHandshake, ok := msg.(*message.Handshake)
+	if !ok {
+		return errors.New("Received message is not Handshake")
+	}
+
+	//
+	// === PROCESS HANDSHAKE MESSAGES ===
+	//
+
+	// Generate shared secret.
+	sharedSecret, err := ephemeralKey.GenerateSharedSecret(remoteHandshake.EphemeralPubKey)
+	if err != nil {
+		return err
+	}
+
+	// Generate two key pairs by stretching the secret.
+	var salt []byte
+	if order > 0 {
+		salt = append(localNonce, remoteInit.GetNonce()...)
+	} else {
+		salt = append(remoteInit.GetNonce(), localNonce...)
+	}
+	k1, k2, err := crypto.StretchKey(sharedSecret, salt, selectedHash, selectedCipher)
+	if order < 0 {
+		k2, k1 = k1, k2
+	}
+
+	// Initiate the secure encoder.
+	enc, err := encoder.NewSecure(k1, k2, selectedHash, selectedCipher)
+	if err != nil {
+		return err
+	}
+
+	//
+	// === EXCHANGE CONFIRMHANDSHAKE MESSAGES ===
+	//
+
+	// Form ConfirmHandshake message.
+	sig, err := iden.PrivKey.Sign(remoteInit.GetNonce(), selectedHash)
+	if err != nil {
+		return err
+	}
+
+	localConfirm := &message.ConfirmHandshake{
+		Nonce:     remoteInit.GetNonce(),
+		Signature: sig,
+	}
+
+	// Send ConfirmHandshake message.
+	data, err = enc.Encode(localConfirm)
+	if err != nil {
+		return err
+	}
+	err = p.sendWithContext(ctx, data)
+	if err != nil {
+		return err
+	}
+
+	// Receive ConfirmHandshake message.
+	data, err = p.receiveWithContext(ctx)
+	if err != nil {
+		return err
+	}
+	msg, err = enc.Decode(data)
+	if err != nil {
+		return err
+	}
+	remoteConfirm, ok := msg.(*message.ConfirmHandshake)
+	if !ok {
+		return errors.New("Received message is not ConfirmHandshake")
+	}
+
+	//
+	// === PROCESS CONFIRMHANDSHAKE MESSAGES ===
+	//
+
+	// Confirm identity.
+	err = remotePub.Validate(localNonce, remoteConfirm.GetSignature(), selectedHash)
+	if err != nil {
+		return err
+	}
+
+	confirm, err := utils.Compare(remoteConfirm.GetNonce(), localNonce)
+	if err != nil || confirm != 0 {
+		return errors.New("Received invalid nonce")
+	}
+
+	// Finally set up the peer.
+	p.id = remoteId
+	p.encoder = enc
+
+	return nil
 }

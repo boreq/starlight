@@ -10,6 +10,8 @@ It is generated from these files:
 
 It has these top-level messages:
 	Init
+	Handshake
+	ConfirmHandshake
 */
 package message
 
@@ -21,9 +23,12 @@ var _ = proto.Marshal
 var _ = math.Inf
 
 type Init struct {
-	PubKey           []byte `protobuf:"bytes,1,req" json:"PubKey,omitempty"`
-	EphemeralPubKey  []byte `protobuf:"bytes,2,req" json:"EphemeralPubKey,omitempty"`
-	XXX_unrecognized []byte `json:"-"`
+	PubKey           []byte  `protobuf:"bytes,1,req" json:"PubKey,omitempty"`
+	Nonce            []byte  `protobuf:"bytes,2,req" json:"Nonce,omitempty"`
+	SupportedCurves  *string `protobuf:"bytes,3,req" json:"SupportedCurves,omitempty"`
+	SupportedHashes  *string `protobuf:"bytes,4,req" json:"SupportedHashes,omitempty"`
+	SupportedCiphers *string `protobuf:"bytes,5,req" json:"SupportedCiphers,omitempty"`
+	XXX_unrecognized []byte  `json:"-"`
 }
 
 func (m *Init) Reset()         { *m = Init{} }
@@ -37,9 +42,70 @@ func (m *Init) GetPubKey() []byte {
 	return nil
 }
 
-func (m *Init) GetEphemeralPubKey() []byte {
+func (m *Init) GetNonce() []byte {
+	if m != nil {
+		return m.Nonce
+	}
+	return nil
+}
+
+func (m *Init) GetSupportedCurves() string {
+	if m != nil && m.SupportedCurves != nil {
+		return *m.SupportedCurves
+	}
+	return ""
+}
+
+func (m *Init) GetSupportedHashes() string {
+	if m != nil && m.SupportedHashes != nil {
+		return *m.SupportedHashes
+	}
+	return ""
+}
+
+func (m *Init) GetSupportedCiphers() string {
+	if m != nil && m.SupportedCiphers != nil {
+		return *m.SupportedCiphers
+	}
+	return ""
+}
+
+type Handshake struct {
+	EphemeralPubKey  []byte `protobuf:"bytes,1,req" json:"EphemeralPubKey,omitempty"`
+	XXX_unrecognized []byte `json:"-"`
+}
+
+func (m *Handshake) Reset()         { *m = Handshake{} }
+func (m *Handshake) String() string { return proto.CompactTextString(m) }
+func (*Handshake) ProtoMessage()    {}
+
+func (m *Handshake) GetEphemeralPubKey() []byte {
 	if m != nil {
 		return m.EphemeralPubKey
+	}
+	return nil
+}
+
+type ConfirmHandshake struct {
+	Nonce            []byte `protobuf:"bytes,1,req" json:"Nonce,omitempty"`
+	Signature        []byte `protobuf:"bytes,2,req" json:"Signature,omitempty"`
+	XXX_unrecognized []byte `json:"-"`
+}
+
+func (m *ConfirmHandshake) Reset()         { *m = ConfirmHandshake{} }
+func (m *ConfirmHandshake) String() string { return proto.CompactTextString(m) }
+func (*ConfirmHandshake) ProtoMessage()    {}
+
+func (m *ConfirmHandshake) GetNonce() []byte {
+	if m != nil {
+		return m.Nonce
+	}
+	return nil
+}
+
+func (m *ConfirmHandshake) GetSignature() []byte {
+	if m != nil {
+		return m.Signature
 	}
 	return nil
 }
