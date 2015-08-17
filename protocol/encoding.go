@@ -3,7 +3,6 @@ package protocol
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/boreq/netblog/utils"
 	"golang.org/x/net/context"
 )
 
@@ -23,33 +22,29 @@ type unmarshaler struct {
 
 func (u *unmarshaler) Write(d []byte) (int, error) {
 	n, _ := u.buf.Write(d)
-	u.process()
-	return n, nil
+	err := u.process()
+	return n, err
 }
 
 const msgHeaderSize = 4
 
-var umLog = utils.Logger("Unmarshaller")
-
-func (u *unmarshaler) process() {
+func (u *unmarshaler) process() error {
 	for {
 		// Do we have enough data to read header?
 		if u.buf.Len() < msgHeaderSize {
-			return
+			return nil
 		}
 
 		// Read header.
 		size, err := readMsgSize(u.buf.Bytes()[:msgHeaderSize])
 		if err != nil {
-			// TODO: close chanel and handle protocol error
-			umLog.Print("Failed to read message header, panic")
-			panic(err)
+			return err
 		}
 
 		// Do we have enough data to read entire message?
 		totalSize := size + msgHeaderSize
 		if uint32(u.buf.Len()) < totalSize {
-			return
+			return nil
 		}
 
 		// Decode.
@@ -62,6 +57,7 @@ func (u *unmarshaler) process() {
 		case u.c <- payload:
 		case <-u.ctx.Done():
 		}
+		return nil
 	}
 }
 

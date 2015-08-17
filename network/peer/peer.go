@@ -196,7 +196,11 @@ func receiveFromPeer(ctx context.Context, in chan<- []byte, reader io.Reader, ca
 				cancel()
 				return
 			}
-			unmarshaler.Write(buf[:n])
+			_, err = unmarshaler.Write(buf[:n])
+			if err != nil {
+				cancel()
+				return
+			}
 		}
 	}
 }
