@@ -29,6 +29,12 @@ func getCurve(name string) (elliptic.Curve, error) {
 	switch name {
 	case "P224":
 		return elliptic.P224(), nil
+	case "P256":
+		return elliptic.P256(), nil
+	case "P384":
+		return elliptic.P384(), nil
+	case "P521":
+		return elliptic.P521(), nil
 	default:
 		return nil, errors.New("Invalid curve name")
 	}

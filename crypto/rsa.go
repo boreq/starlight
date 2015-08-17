@@ -24,6 +24,16 @@ func (k rsaPrivateKey) PublicKey() PublicKey {
 	return rsaPublicKey{&k.key.PublicKey}
 }
 
+func (k rsaPrivateKey) Sign(data []byte, hashName string) ([]byte, error) {
+	hash, err := GetCryptoHash(hashName)
+	if err != nil {
+		return nil, err
+	}
+	hashed := Digest(hash.New(), data)
+	return rsa.SignPKCS1v15(rand.Reader, k.key, hash, hashed)
+}
+
+// NewPrivateKey creates a key from the output of PrivateKey.Bytes method.
 func NewPrivateKey(data []byte) (PrivateKey, error) {
 	key, err := x509.ParsePKCS1PrivateKey(data)
 	if err != nil {
@@ -45,6 +55,16 @@ func (k rsaPublicKey) Hash() ([]byte, error) {
 	return KeyDigest(k)
 }
 
+func (k rsaPublicKey) Validate(data, signature []byte, hashName string) error {
+	hash, err := GetCryptoHash(hashName)
+	if err != nil {
+		return err
+	}
+	hashed := Digest(hash.New(), data)
+	return rsa.VerifyPKCS1v15(k.key, hash, hashed, signature)
+}
+
+// NewPublicKey creates a key from the output of PublicKey.Bytes method.
 func NewPublicKey(data []byte) (PublicKey, error) {
 	decodedKey, err := x509.ParsePKIXPublicKey(data)
 	if err != nil {
