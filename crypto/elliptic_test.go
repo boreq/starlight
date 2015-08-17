@@ -1,7 +1,7 @@
 package crypto
 
 import (
-	"github.com/boreq/netblog/utils"
+	"bytes"
 	"testing"
 )
 
@@ -41,8 +41,7 @@ func TestSharedSecret(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result, err := utils.Compare(sharedSecret1, sharedSecret2)
-	if err != nil || result != 0 {
+	if !bytes.Equal(sharedSecret1, sharedSecret2) {
 		t.Fatal("Shared secrets are different")
 	}
 }
