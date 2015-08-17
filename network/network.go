@@ -36,6 +36,8 @@ func (n *network) Subscribe() (chan IncomingMessage, CancelFunc) {
 }
 
 func (n *network) Listen(address string) error {
+	log.Debugf("Starting listening on %s", address)
+
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return err
