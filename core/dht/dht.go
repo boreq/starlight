@@ -7,7 +7,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-var log = utils.Logger("dht")
+var log = utils.GetLogger("dht")
 
 // System-wide replication parameter.
 const k = 20

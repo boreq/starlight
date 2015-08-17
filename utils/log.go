@@ -5,15 +5,48 @@ import (
 	"os"
 )
 
-var loggers map[string]*log.Logger
-
-func init() {
-	loggers = make(map[string]*log.Logger)
+type Logger interface {
+	Print(...interface{})
+	Printf(string, ...interface{})
+	Debug(...interface{})
+	Debugf(string, ...interface{})
 }
 
-func Logger(name string) *log.Logger {
+type logger struct {
+	logger *log.Logger
+}
+
+func (l *logger) Print(v ...interface{}) {
+	l.logger.Print(v...)
+}
+
+func (l *logger) Printf(format string, v ...interface{}) {
+	l.logger.Printf(format, v...)
+}
+
+func (l *logger) Debug(v ...interface{}) {
+	if debug {
+		l.logger.Print(v...)
+	}
+}
+
+func (l *logger) Debugf(format string, v ...interface{}) {
+	if debug {
+		l.logger.Printf(format, v...)
+	}
+}
+
+var debug bool
+var loggers map[string]Logger
+
+func init() {
+	loggers = make(map[string]Logger)
+	debug = (os.Getenv("NETBLOGDEBUG") != "")
+}
+
+func GetLogger(name string) Logger {
 	if _, ok := loggers[name]; !ok {
-		loggers[name] = log.New(os.Stdout, name+": ", 0)
+		loggers[name] = &logger{log.New(os.Stdout, name+": ", 0)}
 	}
 	return loggers[name]
 }

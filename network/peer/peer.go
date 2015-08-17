@@ -53,7 +53,6 @@ func New(ctx context.Context, iden node.Identity, conn net.Conn) (Peer, error) {
 
 	err := p.handshake(iden)
 	if err != nil {
-		log.Print("Handshake error ", err)
 		p.Close()
 		return nil, err
 	}
@@ -240,7 +239,6 @@ func selectParam(a, b string) string {
 
 var handshakeTimeout = 5 * time.Second
 var nonceSize = 20
-var log = utils.Logger("handshake")
 
 // The ride never ends. Performs a handshake, sets up a secure encoder and peer
 // id.
