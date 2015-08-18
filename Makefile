@@ -10,7 +10,7 @@ test:
 	go test ./...
 
 proto:
-	protoc --proto_path="protocol/proto" --go_out="protocol/message" protocol/proto/message.proto
+	protoc --proto_path="protocol/message" --go_out="protocol/message" protocol/message/message.proto
 
 clean:
 	rm -f ./main/main
