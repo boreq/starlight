@@ -87,9 +87,13 @@ func (m *Handshake) GetEphemeralPubKey() []byte {
 }
 
 type ConfirmHandshake struct {
-	Nonce            []byte `protobuf:"bytes,1,req" json:"Nonce,omitempty"`
-	Signature        []byte `protobuf:"bytes,2,req" json:"Signature,omitempty"`
-	XXX_unrecognized []byte `json:"-"`
+	Nonce     []byte `protobuf:"bytes,1,req" json:"Nonce,omitempty"`
+	Signature []byte `protobuf:"bytes,2,req" json:"Signature,omitempty"`
+	// Address this node is listening on.
+	ListenAddress *string `protobuf:"bytes,3,req" json:"ListenAddress,omitempty"`
+	// Apparent address of the other side of the connection.
+	ConnectionAddress *string `protobuf:"bytes,4,req" json:"ConnectionAddress,omitempty"`
+	XXX_unrecognized  []byte  `json:"-"`
 }
 
 func (m *ConfirmHandshake) Reset()         { *m = ConfirmHandshake{} }
@@ -108,4 +112,18 @@ func (m *ConfirmHandshake) GetSignature() []byte {
 		return m.Signature
 	}
 	return nil
+}
+
+func (m *ConfirmHandshake) GetListenAddress() string {
+	if m != nil && m.ListenAddress != nil {
+		return *m.ListenAddress
+	}
+	return ""
+}
+
+func (m *ConfirmHandshake) GetConnectionAddress() string {
+	if m != nil && m.ConnectionAddress != nil {
+		return *m.ConnectionAddress
+	}
+	return ""
 }

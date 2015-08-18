@@ -16,7 +16,7 @@ type IncomingMessage struct {
 // network.
 type Network interface {
 	// Listen starts listening on the given address, does not block.
-	Listen(address string) error
+	Listen() error
 
 	// Dial returns Peer which allows to send messages to other nodes.
 	Dial(node node.NodeInfo) (Peer, error)

@@ -14,31 +14,33 @@ import (
 var log = utils.GetLogger("network")
 var differentNodeIdError = errors.New("Peer under this address has a different id than requested")
 
-func New(ctx context.Context, ident node.Identity) Network {
+func New(ctx context.Context, ident node.Identity, address string) Network {
 	net := &network{
-		ctx:  ctx,
-		iden: ident,
-		disp: NewDispatcher(ctx),
+		ctx:     ctx,
+		iden:    ident,
+		disp:    NewDispatcher(ctx),
+		address: address,
 	}
 	return net
 }
 
 type network struct {
-	ctx   context.Context
-	iden  node.Identity
-	peers []peer.Peer
-	plock sync.Mutex
-	disp  Dispatcher
+	ctx     context.Context
+	iden    node.Identity
+	peers   []peer.Peer
+	plock   sync.Mutex
+	disp    Dispatcher
+	address string
 }
 
 func (n *network) Subscribe() (chan IncomingMessage, CancelFunc) {
 	return n.disp.Subscribe()
 }
 
-func (n *network) Listen(address string) error {
-	log.Debugf("Starting listening on %s", address)
+func (n *network) Listen() error {
+	log.Debugf("Starting listening on %s", n.address)
 
-	listener, err := net.Listen("tcp", address)
+	listener, err := net.Listen("tcp", n.address)
 	if err != nil {
 		return err
 	}
@@ -66,7 +68,7 @@ func (n *network) Listen(address string) error {
 
 // Initiates a new connection (incoming or outgoing).
 func (n *network) newConnection(ctx context.Context, conn net.Conn) (peer.Peer, error) {
-	p, err := peer.New(ctx, n.iden, conn)
+	p, err := peer.New(ctx, n.iden, n.address, conn)
 	if err != nil {
 		log.Debugf("newConnection: failed to init a peer: %s", err)
 		return nil, err
@@ -95,6 +97,8 @@ func (n *network) newConnection(ctx context.Context, conn net.Conn) (peer.Peer, 
 			n.disp.Dispatch(p, msg)
 		}
 	}()
+
+	log.Debugf("newConnection: accepted %s reporting listener on %s ", p.Info().Id, p.Info().Address)
 
 	return p, nil
 }

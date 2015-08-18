@@ -37,7 +37,7 @@ type Peer interface {
 
 // Use this instead of creating peer structs directly. Initiates communication
 // channels and context.
-func New(ctx context.Context, iden node.Identity, conn net.Conn) (Peer, error) {
+func New(ctx context.Context, iden node.Identity, listenAddress string, conn net.Conn) (Peer, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	p := &peer{
 		ctx:     ctx,
@@ -51,7 +51,7 @@ func New(ctx context.Context, iden node.Identity, conn net.Conn) (Peer, error) {
 	p.out = make(chan []byte)
 	go sendToPeer(p.ctx, p.out, p.conn)
 
-	err := p.handshake(iden)
+	err := p.handshake(iden, listenAddress)
 	if err != nil {
 		p.Close()
 		return nil, err
@@ -61,19 +61,24 @@ func New(ctx context.Context, iden node.Identity, conn net.Conn) (Peer, error) {
 }
 
 type peer struct {
-	id      node.ID
-	ctx     context.Context
-	cancel  context.CancelFunc
-	in      chan []byte
-	out     chan []byte
-	conn    net.Conn
-	encoder encoder.Encoder
+	id         node.ID
+	ctx        context.Context
+	cancel     context.CancelFunc
+	in         chan []byte
+	out        chan []byte
+	conn       net.Conn
+	listenAddr string
+	encoder    encoder.Encoder
 }
 
 func (p *peer) Info() node.NodeInfo {
+	rHost, _, _ := net.SplitHostPort(p.conn.RemoteAddr().String())
+	_, rPort, _ := net.SplitHostPort(p.listenAddr)
+	address := net.JoinHostPort(rHost, rPort)
+
 	return node.NodeInfo{
 		Id:      p.id,
-		Address: p.conn.RemoteAddr().String(),
+		Address: address,
 	}
 }
 
@@ -242,7 +247,7 @@ var nonceSize = 20
 
 // The ride never ends. Performs a handshake, sets up a secure encoder and peer
 // id.
-func (p *peer) handshake(iden node.Identity) error {
+func (p *peer) handshake(iden node.Identity, listenAddr string) error {
 	ctx, cancel := context.WithTimeout(p.ctx, handshakeTimeout)
 	defer cancel()
 
@@ -413,9 +418,12 @@ func (p *peer) handshake(iden node.Identity) error {
 		return err
 	}
 
+	remoteAddr := p.conn.RemoteAddr().String()
 	localConfirm := &message.ConfirmHandshake{
-		Nonce:     remoteInit.GetNonce(),
-		Signature: sig,
+		Nonce:             remoteInit.GetNonce(),
+		Signature:         sig,
+		ListenAddress:     &listenAddr,
+		ConnectionAddress: &remoteAddr,
 	}
 
 	// Send ConfirmHandshake message.
@@ -460,6 +468,7 @@ func (p *peer) handshake(iden node.Identity) error {
 	// Finally set up the peer.
 	p.id = remoteId
 	p.encoder = enc
+	p.listenAddr = remoteConfirm.GetListenAddress()
 
 	return nil
 }

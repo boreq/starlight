@@ -8,14 +8,14 @@ import (
 )
 
 type Netblog interface {
-	Start()
+	Start() error
 }
 
 func NewNetblog(ctx context.Context, ident node.Identity, config *config.Config) Netblog {
 	rw := &netblog{
 		config: config,
 		ident:  ident,
-		dht:    dht.New(ctx, ident),
+		dht:    dht.New(ctx, ident, config.ListenAddress),
 		ctx:    ctx,
 	}
 	return rw
@@ -28,6 +28,11 @@ type netblog struct {
 	ctx    context.Context
 }
 
-func (n *netblog) Start() {
-	n.dht.Init(n.config.BootstrapNodes, n.config.ListenAddress)
+func (n *netblog) Start() error {
+	err := n.dht.Init(n.config.BootstrapNodes)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

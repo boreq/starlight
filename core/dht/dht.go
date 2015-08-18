@@ -11,12 +11,14 @@ var log = utils.GetLogger("dht")
 
 // System-wide replication parameter.
 const k = 20
+
+// System-wide concurrency parameter.
 const a = 3
 
-func New(ctx context.Context, ident node.Identity) DHT {
+func New(ctx context.Context, ident node.Identity, address string) DHT {
 	rw := &dht{
 		ctx:  ctx,
-		net:  network.New(ctx, ident),
+		net:  network.New(ctx, ident, address),
 		rt:   NewRoutingTable(),
 		self: ident.Id,
 	}
@@ -30,36 +32,29 @@ type dht struct {
 	self node.ID
 }
 
-func (d *dht) Init(nodes []node.NodeInfo, address string) error {
-	log.Printf("Subscribing to messages and running SubGoroutine")
+func (d *dht) Init(nodes []node.NodeInfo) error {
 	c, cancel := d.net.Subscribe()
 	go func() {
-		defer func() {
-			log.Print("SubGoroutine close subscription")
-			cancel()
-		}()
+		defer cancel()
 		for {
 			select {
 			case msg := <-c:
-				log.Printf("SubGoroutine received message from %s", msg.Id)
+				log.Debugf("SubGoroutine received message from %s", msg.Id)
 				//d.rt.Update(msg.Id, msg.Address)
 			case <-d.ctx.Done():
-				log.Print("SubGoroutine context closed")
 				return
 			}
 		}
 	}()
 
-	log.Printf("Starting network on %s", address)
-	err := d.net.Listen(address)
+	err := d.net.Listen()
 	if err != nil {
 		return err
 	}
 
-	log.Print("Initializing")
 	for _, nodeInfo := range nodes {
 		_, err := d.net.Dial(nodeInfo)
-		log.Printf("Dial %s on %s, err: %s", nodeInfo.Id, nodeInfo.Address, err)
+		log.Debugf("Dial %s, err: %s", nodeInfo.Id, err)
 	}
 	//d.FindNode(d.self)
 	return nil

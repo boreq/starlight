@@ -6,7 +6,7 @@ import (
 )
 
 type DHT interface {
-	Init([]node.NodeInfo, string) error
+	Init([]node.NodeInfo) error
 	Ping(node.ID) error
 	FindNode(node.ID) (node.NodeInfo, error)
 }
