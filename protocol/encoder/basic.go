@@ -55,6 +55,8 @@ func (b *basic) Decode(data []byte) (proto.Message, error) {
 		msg = &message.Handshake{}
 	case 3:
 		msg = &message.ConfirmHandshake{}
+	case 4:
+		msg = &message.Identity{}
 	default:
 		return nil, errors.New("Unknown message type")
 	}

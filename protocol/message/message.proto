@@ -13,8 +13,11 @@ message Handshake {
 message ConfirmHandshake {
     required bytes Nonce = 1;
     required bytes Signature = 2;
-    // Address this node is listening on.
-    required string ListenAddress = 3;
+}
+
+message Identity {
+    // Address the local node is listening on.
+    required string ListenAddress = 1;
     // Apparent address of the other side of the connection.
-    required string ConnectionAddress = 4;
+    required string ConnectionAddress = 2;
 }

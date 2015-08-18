@@ -39,8 +39,8 @@ func (d *dht) Init(nodes []node.NodeInfo) error {
 		for {
 			select {
 			case msg := <-c:
-				log.Debugf("SubGoroutine received message from %s", msg.Id)
-				//d.rt.Update(msg.Id, msg.Address)
+				log.Debugf("Received message from %s on %s", msg.Id, msg.Address)
+				d.rt.Update(msg.Id, msg.Address)
 			case <-d.ctx.Done():
 				return
 			}

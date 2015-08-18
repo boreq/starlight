@@ -35,6 +35,8 @@ type Peer interface {
 	Closed() bool
 }
 
+var handshakeTimeout = 5 * time.Second
+
 // Use this instead of creating peer structs directly. Initiates communication
 // channels and context.
 func New(ctx context.Context, iden node.Identity, listenAddress string, conn net.Conn) (Peer, error) {
@@ -51,7 +53,15 @@ func New(ctx context.Context, iden node.Identity, listenAddress string, conn net
 	p.out = make(chan []byte)
 	go sendToPeer(p.ctx, p.out, p.conn)
 
-	err := p.handshake(iden, listenAddress)
+	hCtx, cancel := context.WithTimeout(p.ctx, handshakeTimeout)
+	defer cancel()
+
+	err := p.handshake(hCtx, iden)
+	if err != nil {
+		p.Close()
+		return nil, err
+	}
+	err = p.identify(hCtx, listenAddress)
 	if err != nil {
 		p.Close()
 		return nil, err
@@ -242,14 +252,11 @@ func selectParam(a, b string) string {
 	return ""
 }
 
-var handshakeTimeout = 5 * time.Second
 var nonceSize = 20
 
 // The ride never ends. Performs a handshake, sets up a secure encoder and peer
 // id.
-func (p *peer) handshake(iden node.Identity, listenAddr string) error {
-	ctx, cancel := context.WithTimeout(p.ctx, handshakeTimeout)
-	defer cancel()
+func (p *peer) handshake(ctx context.Context, iden node.Identity) error {
 
 	//
 	// === EXCHANGE INIT MESSAGES ===
@@ -418,12 +425,9 @@ func (p *peer) handshake(iden node.Identity, listenAddr string) error {
 		return err
 	}
 
-	remoteAddr := p.conn.RemoteAddr().String()
 	localConfirm := &message.ConfirmHandshake{
-		Nonce:             remoteInit.GetNonce(),
-		Signature:         sig,
-		ListenAddress:     &listenAddr,
-		ConnectionAddress: &remoteAddr,
+		Nonce:     remoteInit.GetNonce(),
+		Signature: sig,
 	}
 
 	// Send ConfirmHandshake message.
@@ -468,7 +472,44 @@ func (p *peer) handshake(iden node.Identity, listenAddr string) error {
 	// Finally set up the peer.
 	p.id = remoteId
 	p.encoder = enc
-	p.listenAddr = remoteConfirm.GetListenAddress()
 
+	return nil
+}
+
+func (p *peer) identify(ctx context.Context, listenAddr string) error {
+	// Form Identity message.
+	remoteAddr := p.conn.RemoteAddr().String()
+
+	localIdentify := &message.Identity{
+		ListenAddress:     &listenAddr,
+		ConnectionAddress: &remoteAddr,
+	}
+
+	// Send Identity message.
+	data, err := p.encoder.Encode(localIdentify)
+	if err != nil {
+		return err
+	}
+	err = p.sendWithContext(ctx, data)
+	if err != nil {
+		return err
+	}
+
+	// Receive Identity message.
+	data, err = p.receiveWithContext(ctx)
+	if err != nil {
+		return err
+	}
+	msg, err := p.encoder.Decode(data)
+	if err != nil {
+		return err
+	}
+	remoteIdentify, ok := msg.(*message.Identity)
+	if !ok {
+		return errors.New("Received message is not Identity")
+	}
+
+	// Process Identity message.
+	p.listenAddr = remoteIdentify.GetListenAddress()
 	return nil
 }

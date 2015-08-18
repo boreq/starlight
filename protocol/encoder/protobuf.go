@@ -11,6 +11,7 @@ var cmdMap = map[reflect.Type]uint32{
 	reflect.TypeOf(message.Init{}):             1,
 	reflect.TypeOf(message.Handshake{}):        2,
 	reflect.TypeOf(message.ConfirmHandshake{}): 3,
+	reflect.TypeOf(message.Identity{}):         4,
 }
 
 // CmdEncode returns a value used in the protocol to indicate the type of a
