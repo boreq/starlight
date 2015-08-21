@@ -90,7 +90,7 @@ func (n *network) newConnection(ctx context.Context, conn net.Conn) (peer.Peer, 
 	// Run dispatcher to be able to receive messages from all peers easily.
 	go func() {
 		for {
-			msg, err := p.Receive()
+			msg, err := p.ReceiveWithContext(n.ctx)
 			if err != nil {
 				return
 			}
