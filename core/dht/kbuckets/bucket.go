@@ -17,36 +17,45 @@ func (b *bucket) Len() int {
 
 // Contains checks if an entry already exists in a bucket.
 func (b *bucket) Contains(id node.ID) bool {
-	if b.find(id) != nil {
-		return true
-	} else {
-		return false
-	}
+	return b.find(id) != nil
 }
 
-// Update updates the address of an entry and moves it to front of the bucket.
-func (b *bucket) Update(k int, id node.ID, address string) {
+// Entries returns a slice with all entries in this bucket.
+func (b *bucket) Entries() []node.NodeInfo {
+	rw := make([]node.NodeInfo, b.Len())
+	i := 0
+	for el := b.entries.Front(); el != nil; el = el.Next() {
+		rw[i] = el.Value.(node.NodeInfo)
+		i++
+	}
+	return rw
+}
+
+// Update adds a new entry at the front of the bucket or updates the address of
+// an already existing entry and moves it to front of the bucket.
+func (b *bucket) Update(id node.ID, address string) {
 	el := b.find(id)
 	if el != nil {
 		b.entries.Remove(el)
 	}
-	en := Entry{id, address}
+	en := node.NodeInfo{id, address}
 	b.entries.PushFront(en)
 }
 
 // DropLast removes the last entry from the bucket and returns it.
-func (b *bucket) DropLast() (Entry, error) {
+func (b *bucket) DropLast() (*node.NodeInfo, error) {
 	el := b.entries.Back()
 	if el == nil {
-		return Entry{}, errors.New("Bucket is empty")
+		return nil, errors.New("Bucket is empty")
 	}
-	return b.entries.Remove(el).(Entry), nil
+	entry := b.entries.Remove(el).(node.NodeInfo)
+	return &entry, nil
 }
 
-// Find returns a list element with stores an Entry with a given id.
+// Find returns a list element which stores an entry with the given id.
 func (b *bucket) find(id node.ID) *list.Element {
 	for el := b.entries.Front(); el != nil; el = el.Next() {
-		en := el.Value.(Entry)
+		en := el.Value.(node.NodeInfo)
 		if node.CompareId(en.Id, id) {
 			return el
 		}
