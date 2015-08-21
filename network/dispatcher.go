@@ -72,7 +72,7 @@ func (d *dispatcher) Dispatch(p Peer, msg proto.Message) {
 		msg,
 	}
 
-	log.Printf("Dispatching message from %s", incMsg.Id)
+	log.Printf("Dispatching message from %s", incMsg.Sender.Id)
 
 	for _, sub := range d.subs {
 		go func() {

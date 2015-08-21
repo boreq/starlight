@@ -3,13 +3,14 @@ package network
 import (
 	"github.com/boreq/netblog/network/node"
 	"github.com/golang/protobuf/proto"
+	"golang.org/x/net/context"
 )
 
 // Since all incoming messages are passed on the same channel they must be
 // bundled with a node.ID.
 type IncomingMessage struct {
-	node.NodeInfo
-	proto.Message
+	Sender  node.NodeInfo
+	Message proto.Message
 }
 
 // Network is used to exchange messages with other nodes participating in the
@@ -33,4 +34,7 @@ type Peer interface {
 
 	// Sends a message to a node.
 	Send(proto.Message) error
+
+	// Sends a message to the node, returns an error if context is closed.
+	SendWithContext(context.Context, proto.Message) error
 }

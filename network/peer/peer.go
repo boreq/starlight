@@ -24,8 +24,15 @@ type Peer interface {
 	// Sends a message to the node.
 	Send(proto.Message) error
 
+	// Sends a message to the node, returns an error if context is closed.
+	SendWithContext(context.Context, proto.Message) error
+
 	// Receives a message from the node.
 	Receive() (proto.Message, error)
+
+	// Receives a message from the node, returns an error if context is
+	// closed.
+	ReceiveWithContext(context.Context) (proto.Message, error)
 
 	// Close ends communication with the node, closes the underlying
 	// connection.
@@ -114,6 +121,14 @@ func (p *peer) Send(msg proto.Message) error {
 	return p.send(data)
 }
 
+func (p *peer) SendWithContext(ctx context.Context, msg proto.Message) error {
+	data, err := p.encoder.Encode(msg)
+	if err != nil {
+		return err
+	}
+	return p.sendWithContext(ctx, data)
+}
+
 // send sends a raw message to the peer.
 func (p *peer) send(data []byte) error {
 	select {
@@ -124,33 +139,27 @@ func (p *peer) send(data []byte) error {
 	}
 }
 
-// sendWithContext sends a raw message to the peer but returns with an error
-// when ctx is closed.
 func (p *peer) sendWithContext(ctx context.Context, data []byte) error {
-	var err error
-
-	// This is basically a bug - but whatever, only used in handshake and
-	// if this function times out, the handshake will fail, p.ctx will
-	// be closed, p.send will fail and this function will end execution.
-	c := make(chan error)
-	go func() {
-		err := p.send(data)
-		select {
-		case c <- err:
-		case <-ctx.Done():
-		}
-	}()
-
 	select {
-	case err = <-c:
+	case p.out <- data:
+		return nil
 	case <-ctx.Done():
-		return ctx.Err()
+		return errors.New("Passed context closed, can not send")
+	case <-p.ctx.Done():
+		return errors.New("Context closed, can not send")
 	}
-	return err
 }
 
 func (p *peer) Receive() (proto.Message, error) {
 	data, err := p.receive()
+	if err != nil {
+		return nil, err
+	}
+	return p.encoder.Decode(data)
+}
+
+func (p *peer) ReceiveWithContext(ctx context.Context) (proto.Message, error) {
+	data, err := p.receiveWithContext(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -173,22 +182,17 @@ func (p *peer) receive() ([]byte, error) {
 // receiveWithContext receives a raw message to the peer but returns with an
 // error when ctx is closed.
 func (p *peer) receiveWithContext(ctx context.Context) (data []byte, err error) {
-	// Again, this is a bug.
-	c := make(chan error)
-	go func() {
-		data, err = p.receive()
-		select {
-		case c <- err:
-		case <-ctx.Done():
-		}
-	}()
-
 	select {
-	case err = <-c:
+	case data, ok := <-p.in:
+		if !ok {
+			return nil, errors.New("Channel closed, can't receive")
+		}
+		return data, nil
 	case <-ctx.Done():
-		err = ctx.Err()
+		return nil, errors.New("Passed context closed, can't receive")
+	case <-p.ctx.Done():
+		return nil, errors.New("Context closed, can't receive")
 	}
-	return
 }
 
 type cancelFunc func()
