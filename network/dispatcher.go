@@ -53,7 +53,6 @@ func (d *dispatcher) Subscribe() (chan IncomingMessage, CancelFunc) {
 		d.lock.Lock()
 		defer d.lock.Unlock()
 		ctxCancel()
-		close(sub.C)
 		for i := len(d.subs) - 1; i >= 0; i-- {
 			if d.subs[i] == sub {
 				d.subs = append(d.subs[:i], d.subs[i+1:]...)
