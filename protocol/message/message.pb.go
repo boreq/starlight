@@ -13,6 +13,10 @@ It has these top-level messages:
 	Handshake
 	ConfirmHandshake
 	Identity
+	Ping
+	Pong
+	FindNode
+	Nodes
 */
 package message
 
@@ -133,6 +137,94 @@ func (m *Identity) GetListenAddress() string {
 func (m *Identity) GetConnectionAddress() string {
 	if m != nil && m.ConnectionAddress != nil {
 		return *m.ConnectionAddress
+	}
+	return ""
+}
+
+type Ping struct {
+	Random           *uint32 `protobuf:"varint,1,req" json:"Random,omitempty"`
+	XXX_unrecognized []byte  `json:"-"`
+}
+
+func (m *Ping) Reset()         { *m = Ping{} }
+func (m *Ping) String() string { return proto.CompactTextString(m) }
+func (*Ping) ProtoMessage()    {}
+
+func (m *Ping) GetRandom() uint32 {
+	if m != nil && m.Random != nil {
+		return *m.Random
+	}
+	return 0
+}
+
+type Pong struct {
+	Random           *uint32 `protobuf:"varint,1,req" json:"Random,omitempty"`
+	XXX_unrecognized []byte  `json:"-"`
+}
+
+func (m *Pong) Reset()         { *m = Pong{} }
+func (m *Pong) String() string { return proto.CompactTextString(m) }
+func (*Pong) ProtoMessage()    {}
+
+func (m *Pong) GetRandom() uint32 {
+	if m != nil && m.Random != nil {
+		return *m.Random
+	}
+	return 0
+}
+
+type FindNode struct {
+	Id               []byte `protobuf:"bytes,1,req" json:"Id,omitempty"`
+	XXX_unrecognized []byte `json:"-"`
+}
+
+func (m *FindNode) Reset()         { *m = FindNode{} }
+func (m *FindNode) String() string { return proto.CompactTextString(m) }
+func (*FindNode) ProtoMessage()    {}
+
+func (m *FindNode) GetId() []byte {
+	if m != nil {
+		return m.Id
+	}
+	return nil
+}
+
+type Nodes struct {
+	Nodes            []*Nodes_NodeInfo `protobuf:"bytes,1,rep" json:"Nodes,omitempty"`
+	XXX_unrecognized []byte            `json:"-"`
+}
+
+func (m *Nodes) Reset()         { *m = Nodes{} }
+func (m *Nodes) String() string { return proto.CompactTextString(m) }
+func (*Nodes) ProtoMessage()    {}
+
+func (m *Nodes) GetNodes() []*Nodes_NodeInfo {
+	if m != nil {
+		return m.Nodes
+	}
+	return nil
+}
+
+type Nodes_NodeInfo struct {
+	Id               []byte  `protobuf:"bytes,1,req" json:"Id,omitempty"`
+	Address          *string `protobuf:"bytes,2,req" json:"Address,omitempty"`
+	XXX_unrecognized []byte  `json:"-"`
+}
+
+func (m *Nodes_NodeInfo) Reset()         { *m = Nodes_NodeInfo{} }
+func (m *Nodes_NodeInfo) String() string { return proto.CompactTextString(m) }
+func (*Nodes_NodeInfo) ProtoMessage()    {}
+
+func (m *Nodes_NodeInfo) GetId() []byte {
+	if m != nil {
+		return m.Id
+	}
+	return nil
+}
+
+func (m *Nodes_NodeInfo) GetAddress() string {
+	if m != nil && m.Address != nil {
+		return *m.Address
 	}
 	return ""
 }

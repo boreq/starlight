@@ -57,6 +57,14 @@ func (b *basic) Decode(data []byte) (proto.Message, error) {
 		msg = &message.ConfirmHandshake{}
 	case 4:
 		msg = &message.Identity{}
+	case 5:
+		msg = &message.Ping{}
+	case 6:
+		msg = &message.Pong{}
+	case 7:
+		msg = &message.FindNode{}
+	case 8:
+		msg = &message.Nodes{}
 	default:
 		return nil, errors.New("Unknown message type")
 	}

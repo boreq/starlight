@@ -21,3 +21,23 @@ message Identity {
     // Apparent address of the other side of the connection.
     required string ConnectionAddress = 2;
 }
+
+message Ping {
+    required uint32 Random = 1;
+}
+
+message Pong {
+    required uint32 Random = 1;
+}
+
+message FindNode {
+    required bytes Id = 1;
+}
+
+message Nodes {
+    message NodeInfo {
+        required bytes Id = 1;
+        required string Address = 2;
+    }
+    repeated NodeInfo Nodes = 1;
+}
