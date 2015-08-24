@@ -4,6 +4,7 @@ import (
 	"github.com/boreq/netblog/network/node"
 	"github.com/boreq/netblog/utils"
 	"sort"
+	"sync"
 )
 
 type RoutingTable interface {
@@ -24,9 +25,13 @@ type buckets struct {
 	buckets []*bucket
 	k       int
 	self    node.ID
+	lock    sync.Mutex
 }
 
 func (b *buckets) Update(id node.ID, address string) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
 	i, err := b.bucketIndex(id)
 	if err != nil {
 		return
@@ -74,6 +79,9 @@ func (b *buckets) bucketIndex(id node.ID) (int, error) {
 }
 
 func (b *buckets) GetClosest(id node.ID, a int) []node.NodeInfo {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
 	i, err := b.bucketIndex(id)
 	if err != nil {
 		return nil
@@ -87,7 +95,14 @@ func (b *buckets) GetClosest(id node.ID, a int) []node.NodeInfo {
 			se.e = append(se.e, bucket.Entries()...)
 		}
 		sort.Sort(se)
-		return se.e[:a]
+
+		var n int
+		if a > len(se.e) {
+			n = len(se.e)
+		} else {
+			n = a
+		}
+		return se.e[:n]
 	}
 }
 
