@@ -1,12 +1,13 @@
 package commands
 
 import (
-	"fmt"
 	"github.com/boreq/netblog/cli"
 	"github.com/boreq/netblog/config"
 	"github.com/boreq/netblog/core"
+	"github.com/boreq/netblog/local"
 	"github.com/boreq/netblog/network/node"
 	"golang.org/x/net/context"
+	"os"
 )
 
 var daemonCmd = cli.Command{
@@ -25,13 +26,26 @@ func daemon(c cli.Context) error {
 		return err
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	netblog := core.NewNetblog(ctx, *iden, conf)
 	netblog.Start()
 
-	var i int
-	fmt.Scanf("%d", &i)
+	// Run local server.
+	address := local.GetAddress(iden.Id)
+	err = os.Remove(address)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	defer os.Remove(address)
+
+	err = local.RunServer(netblog, address)
+	if err != nil {
+		return err
+	}
+
+	<-ctx.Done()
 
 	return nil
 }

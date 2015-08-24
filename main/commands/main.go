@@ -20,6 +20,7 @@ var MainCmd = cli.Command{
 		"daemon":   &daemonCmd,
 		"init":     &initCmd,
 		"identity": &identityCmd,
+		"ping":     &pingCmd,
 	},
 	ShortDescription: "distributed blogging platform",
 	Description: `Main command decription.
