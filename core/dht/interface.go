@@ -1,23 +1,18 @@
 package dht
 
 import (
-	"github.com/boreq/netblog/core/dht/kbuckets"
 	"github.com/boreq/netblog/network/node"
+	"time"
 )
 
 type DHT interface {
+	// Initializes the DHT using known bootstrap nodes.
 	Init([]node.NodeInfo) error
-	Ping(node.ID) error
+
+	// Ping sends a ping message to a node and returns the time which was
+	// needed for the node to respond.
+	Ping(node.ID) (*time.Duration, error)
+
+	// FindNode attempts to locate a node and return its address.
 	FindNode(node.ID) (node.NodeInfo, error)
-}
-
-type RoutingTable interface {
-	Update(id node.ID, address string)
-	Get(id node.ID) string
-	//GetClosest(id node.ID, a int) []node.NodeInfo
-}
-
-func NewRoutingTable() RoutingTable {
-	rw := &kbuckets.Buckets{}
-	return rw
 }
