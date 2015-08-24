@@ -87,7 +87,7 @@ func (d *dht) handleMessage(msg network.IncomingMessage) error {
 	switch pMsg := msg.Message.(type) {
 
 	case *message.Ping:
-		peer, err := d.net.Dial(msg.Sender)
+		peer, err := d.Dial(msg.Sender.Id)
 		if err == nil {
 			random := pMsg.GetRandom()
 			response := &message.Pong{Random: &random}
@@ -105,7 +105,7 @@ func (d *dht) handleMessage(msg network.IncomingMessage) error {
 			response.Nodes = append(response.Nodes, ndInfo)
 		}
 
-		peer, err := d.net.Dial(msg.Sender)
+		peer, err := d.Dial(msg.Sender.Id)
 		if err == nil {
 			peer.Send(response)
 		}
@@ -113,16 +113,25 @@ func (d *dht) handleMessage(msg network.IncomingMessage) error {
 	return nil
 }
 
-func (d *dht) Ping(id node.ID) (*time.Duration, error) {
-	ctx, cancel := context.WithTimeout(d.ctx, 5*time.Second)
-	defer cancel()
-
+// Dial attempts to return an already active Peer and if there is no peer with
+// the right id connected it attempts to locate and dial it.
+func (d *dht) Dial(id node.ID) (network.Peer, error) {
+	p, err := d.net.FindActive(id)
+	if err == nil {
+		return p, nil
+	}
 	nd, err := d.FindNode(id)
 	if err != nil {
 		return nil, err
 	}
+	return d.net.Dial(nd)
+}
 
-	peer, err := d.net.Dial(nd)
+func (d *dht) Ping(id node.ID) (*time.Duration, error) {
+	ctx, cancel := context.WithTimeout(d.ctx, 5*time.Second)
+	defer cancel()
+
+	peer, err := d.Dial(id)
 	if err != nil {
 		return nil, err
 	}
