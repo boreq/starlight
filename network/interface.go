@@ -19,8 +19,12 @@ type Network interface {
 	// Listen starts listening on the given address, does not block.
 	Listen() error
 
-	// Dial returns Peer which allows to send messages to other nodes.
+	// Dial returns an already connected Peer or if the connection does not
+	// exist attempts to establish it.
 	Dial(node node.NodeInfo) (Peer, error)
+
+	// FindActive returns an already connected Peer.
+	FindActive(id node.ID) (Peer, error)
 
 	// Subscribe returns a channel on which it is possible to receive all
 	// incoming messages. CancelFunc must be called afterwards.

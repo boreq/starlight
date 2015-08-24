@@ -139,6 +139,10 @@ func (n *network) Dial(nd node.NodeInfo) (Peer, error) {
 	}
 }
 
+func (n *network) FindActive(id node.ID) (Peer, error) {
+	return n.findActive(id)
+}
+
 func (n *network) findActive(id node.ID) (peer.Peer, error) {
 	for i := len(n.peers) - 1; i >= 0; i-- {
 		if n.peers[i].Closed() {
@@ -149,6 +153,5 @@ func (n *network) findActive(id node.ID) (peer.Peer, error) {
 			}
 		}
 	}
-
 	return nil, errors.New("Peer not found")
 }
