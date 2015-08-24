@@ -7,12 +7,13 @@ import (
 	"github.com/boreq/netblog/utils"
 	"golang.org/x/net/context"
 	"net"
+	"reflect"
 	"sync"
 	"time"
 )
 
 var log = utils.GetLogger("network")
-var differentNodeIdError = errors.New("Peer under this address has a different id than requested")
+var differentNodeIdError = errors.New("Peer has a different id than requested")
 
 func New(ctx context.Context, ident node.Identity, address string) Network {
 	net := &network{
@@ -38,7 +39,7 @@ func (n *network) Subscribe() (chan IncomingMessage, CancelFunc) {
 }
 
 func (n *network) Listen() error {
-	log.Debugf("Starting listening on %s", n.address)
+	log.Debugf("Starting listening on %s, local id %s", n.address, n.iden.Id)
 
 	listener, err := net.Listen("tcp", n.address)
 	if err != nil {
@@ -91,7 +92,9 @@ func (n *network) newConnection(ctx context.Context, conn net.Conn) (peer.Peer, 
 	go func() {
 		for {
 			msg, err := p.ReceiveWithContext(n.ctx)
+			log.Debugf("%s received %s: %s Error: %s", p.Info().Id, reflect.TypeOf(msg), msg, err)
 			if err != nil {
+				// TODO: not always return
 				return
 			}
 			n.disp.Dispatch(p, msg)

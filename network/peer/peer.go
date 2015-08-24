@@ -13,6 +13,7 @@ import (
 	"golang.org/x/net/context"
 	"io"
 	"net"
+	"reflect"
 	"strings"
 	"time"
 )
@@ -43,6 +44,7 @@ type Peer interface {
 }
 
 var handshakeTimeout = 5 * time.Second
+var log = utils.GetLogger("peer")
 
 // Use this instead of creating peer structs directly. Initiates communication
 // channels and context.
@@ -65,11 +67,13 @@ func New(ctx context.Context, iden node.Identity, listenAddress string, conn net
 
 	err := p.handshake(hCtx, iden)
 	if err != nil {
+		log.Debug("HANDSHAKE ERROR")
 		p.Close()
 		return nil, err
 	}
 	err = p.identify(hCtx, listenAddress)
 	if err != nil {
+		log.Debug("IDENTIFY ERROR")
 		p.Close()
 		return nil, err
 	}
@@ -114,6 +118,7 @@ func (p *peer) Close() {
 }
 
 func (p *peer) Send(msg proto.Message) error {
+	log.Debugf("%s sending %s: %s", p.id, reflect.TypeOf(msg), msg)
 	data, err := p.encoder.Encode(msg)
 	if err != nil {
 		return err
@@ -122,6 +127,7 @@ func (p *peer) Send(msg proto.Message) error {
 }
 
 func (p *peer) SendWithContext(ctx context.Context, msg proto.Message) error {
+	log.Debugf("%s sending %s: %s", p.id, reflect.TypeOf(msg), msg)
 	data, err := p.encoder.Encode(msg)
 	if err != nil {
 		return err
@@ -144,7 +150,7 @@ func (p *peer) sendWithContext(ctx context.Context, data []byte) error {
 	case p.out <- data:
 		return nil
 	case <-ctx.Done():
-		return errors.New("Passed context closed, can not send")
+		return errors.New("Passed context closed, can not send " + ctx.Err().Error())
 	case <-p.ctx.Done():
 		return errors.New("Context closed, can not send")
 	}
@@ -189,7 +195,7 @@ func (p *peer) receiveWithContext(ctx context.Context) (data []byte, err error) 
 		}
 		return data, nil
 	case <-ctx.Done():
-		return nil, errors.New("Passed context closed, can't receive")
+		return nil, errors.New("Passed context closed, can't receive" + ctx.Err().Error())
 	case <-p.ctx.Done():
 		return nil, errors.New("Context closed, can't receive")
 	}
