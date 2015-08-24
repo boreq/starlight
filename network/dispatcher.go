@@ -71,15 +71,15 @@ func (d *dispatcher) Dispatch(p Peer, msg proto.Message) {
 		msg,
 	}
 
-	log.Printf("Dispatching message from %s", incMsg.Sender.Id)
-
 	for _, sub := range d.subs {
-		go func() {
-			select {
-			case <-sub.Ctx.Done():
-				return
-			case sub.C <- incMsg:
-			}
-		}()
+		go dispatch(*sub, incMsg)
+	}
+}
+
+func dispatch(sub subscription, msg IncomingMessage) {
+	select {
+	case <-sub.Ctx.Done():
+		return
+	case sub.C <- msg:
 	}
 }
