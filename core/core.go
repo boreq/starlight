@@ -9,6 +9,8 @@ import (
 
 type Netblog interface {
 	Start() error
+	Identity() node.Identity
+	Dht() dht.DHT
 }
 
 func NewNetblog(ctx context.Context, ident node.Identity, config *config.Config) Netblog {
@@ -26,6 +28,14 @@ type netblog struct {
 	ident  node.Identity
 	dht    dht.DHT
 	ctx    context.Context
+}
+
+func (n *netblog) Identity() node.Identity {
+	return n.ident
+}
+
+func (n *netblog) Dht() dht.DHT {
+	return n.dht
 }
 
 func (n *netblog) Start() error {
