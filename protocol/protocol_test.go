@@ -1,40 +1,38 @@
 package protocol
 
 import (
-	"errors"
+	"bytes"
+	"golang.org/x/net/context"
 	"testing"
 	"time"
 )
 
 func TestMarshalUnmarshal(t *testing.T) {
+	// Marshal
 	data := []byte("testing")
 	b, err := Marshal(data)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	// Unmarshal
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
 	c := make(chan []byte)
-	e := make(chan error)
-	u := NewUnmarshaler(c)
-	u.Write(b)
+	u := NewUnmarshaler(ctx, c)
 	go func() {
-		select {
-		case payload, ok := <-c:
-			if !ok {
-				e <- errors.New("Channel closed")
-			} else {
-				if len(payload) != len(data) {
-					t.Fatal("Invalid length received")
-				}
-			}
-			close(e)
-		case <-time.After(1 * time.Second):
-			e <- errors.New("Did not return a message")
+		if _, err := u.Write(b); err != nil {
+			t.Fatal(err)
 		}
 	}()
-
-	err = <-e
-	if err != nil {
-		t.Fatal(err)
+	select {
+	case payload, ok := <-c:
+		if !ok {
+			t.Fatal("Channel closed")
+		} else if !bytes.Equal(payload, data) {
+			t.Fatal("Invalid data received")
+		}
+	case <-ctx.Done():
+		t.Fatal(ctx.Err())
 	}
 }

@@ -30,18 +30,18 @@ const msgHeaderSize = 4
 
 func (u *unmarshaler) process() error {
 	for {
-		// Do we have enough data to read header?
+		// Do we have enough data to read a header?
 		if u.buf.Len() < msgHeaderSize {
 			return nil
 		}
 
-		// Read header.
+		// Read the header.
 		size, err := readMsgSize(u.buf.Bytes()[:msgHeaderSize])
 		if err != nil {
 			return err
 		}
 
-		// Do we have enough data to read entire message?
+		// Do we have enough data to read the entire message?
 		totalSize := size + msgHeaderSize
 		if uint32(u.buf.Len()) < totalSize {
 			return nil
