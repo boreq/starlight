@@ -13,7 +13,6 @@ import (
 // This part of the config structure is saved in the config file in JSON format.
 type savedConfig struct {
 	ListenAddress  string
-	LocalAddress   string
 	BootstrapNodes []node.NodeInfo
 }
 
@@ -82,11 +81,9 @@ func getDefaultBootstrap() []node.NodeInfo {
 
 // Returns a config filled with default values.
 func Default() *Config {
-
 	conf := &Config{
 		savedConfig{
 			ListenAddress:  ":1836",
-			LocalAddress:   "/tmp/netblog.socket",
 			BootstrapNodes: getDefaultBootstrap(),
 		},
 	}
