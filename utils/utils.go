@@ -5,8 +5,9 @@ import (
 	"os"
 )
 
-// If the directory doesn't exist creates it. If it is impossible returns an
-// error or panics if the second argument is true.
+// EnsureDirExists creates the directory if it doesn't exist. If that is
+// impossible the function returns an error or panics if the second argument is
+// true.
 func EnsureDirExists(path string, shouldPanic bool) error {
 	err := os.MkdirAll(path, 0700)
 	if err != nil && !os.IsExist(err) {
@@ -18,7 +19,8 @@ func EnsureDirExists(path string, shouldPanic bool) error {
 	return nil
 }
 
-// Returns number of zero bits in the slice starting from the left.
+// ZerosLen returns a number of consecutive zero bits in the slice counting from
+// the left.
 func ZerosLen(a []byte) int {
 	for i := 0; i < len(a); i++ {
 		for j := 0; j < 8; j++ {
@@ -33,6 +35,7 @@ func ZerosLen(a []byte) int {
 
 var SliceLengthErr = errors.New("Length of the slices differs")
 
+// XOR runs a[i] ^ b[i] on every element.
 func XOR(a, b []byte) ([]byte, error) {
 	if len(a) != len(b) {
 		return nil, SliceLengthErr
