@@ -6,19 +6,25 @@ import (
 )
 
 func TestEncode(t *testing.T) {
-	msg := &message.Init{
-		PubKey: []byte{},
+	var pingRandom uint32 = 0
+
+	msg := &message.Ping{
+		Random: &pingRandom,
 	}
 	e := NewBasic()
 
+	// Encode.
 	b, err := e.Encode(msg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Log("Encoded len", len(b))
 
-	_, err = e.Decode(b)
+	// Decode.
+	dMsg, err := e.Decode(b)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if pMsg, ok := dMsg.(*message.Ping); !ok || *pMsg.Random != pingRandom {
+		t.Fatal("Invalid message decoded")
 	}
 }
