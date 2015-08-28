@@ -35,7 +35,7 @@ func ZerosLen(a []byte) int {
 
 var SliceLengthErr = errors.New("Length of the slices differs")
 
-// XOR runs a[i] ^ b[i] on every element.
+// XOR runs a[i] ^ b[i] on every element and returns a new slice with a result.
 func XOR(a, b []byte) ([]byte, error) {
 	if len(a) != len(b) {
 		return nil, SliceLengthErr
@@ -48,7 +48,7 @@ func XOR(a, b []byte) ([]byte, error) {
 	return rw, nil
 }
 
-// Cmp compares a and b and returns:
+// Compare compares a and b and returns:
 //
 //   -1 if a <  b
 //    0 if a == b
