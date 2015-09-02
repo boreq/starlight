@@ -26,7 +26,7 @@ import (
 )
 
 // Unmarshaler collects the data written to it and decodes it as defined by
-// top-level protocol structure.
+// the top level protocol structure.
 type Unmarshaler interface {
 	// Write adds more data to be decoded.
 	Write([]byte) (int, error)

@@ -6,6 +6,10 @@ import (
 	"golang.org/x/net/context"
 )
 
+// NewUnmarshaler returns an Unmarshaler which sends assembled messages into
+// the channel c. Write normally blocks until a message can be sent through the
+// channel but if the ctx is closed it will return immediately and the message
+// will not be sent.
 func NewUnmarshaler(ctx context.Context, c chan<- []byte) Unmarshaler {
 	u := &unmarshaler{
 		ctx: ctx,
