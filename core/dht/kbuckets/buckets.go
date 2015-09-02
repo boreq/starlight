@@ -31,7 +31,10 @@ type buckets struct {
 func (b *buckets) Update(id node.ID, address string) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
+	b.update(id, address)
+}
 
+func (b *buckets) update(id node.ID, address string) {
 	i, err := b.bucketIndex(id)
 	if err != nil {
 		return
@@ -53,10 +56,10 @@ func (b *buckets) Update(id node.ID, address string) {
 				if err != nil {
 					break
 				}
-				b.Update(entry.Id, entry.Address)
+				b.update(entry.Id, entry.Address)
 			}
 			// Try insert new.
-			b.Update(id, address)
+			b.update(id, address)
 		} else {
 			// We can't split, drop last and insert.
 			b.buckets[i].DropLast()
