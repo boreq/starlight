@@ -8,7 +8,7 @@ import (
 func TestGetCurve(t *testing.T) {
 	data := strings.Split(SupportedCurves, ",")
 	for _, name := range data {
-		_, err := getCurve(name)
+		_, err := GetCurve(name)
 		if err != nil {
 			t.Fatal(err)
 		}

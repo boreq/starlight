@@ -8,8 +8,13 @@ import (
 func TestSharedSecret(t *testing.T) {
 	var curveName = "P224"
 
+	curve, err := GetCurve(curveName)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	// Local
-	local, err := GenerateEphemeralKeypair(curveName)
+	local, err := GenerateEphemeralKeypair(curve)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -20,7 +25,7 @@ func TestSharedSecret(t *testing.T) {
 	}
 
 	// Remote
-	remote, err := GenerateEphemeralKeypair(curveName)
+	remote, err := GenerateEphemeralKeypair(curve)
 	if err != nil {
 		t.Fatal(err)
 	}

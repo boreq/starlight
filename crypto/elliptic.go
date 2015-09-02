@@ -8,12 +8,7 @@ import (
 )
 
 // GenerateEphemeralKey creates a new ephemeral keypair.
-func GenerateEphemeralKeypair(curveName string) (EphemeralKey, error) {
-	curve, err := getCurve(curveName)
-	if err != nil {
-		return nil, err
-	}
-
+func GenerateEphemeralKeypair(curve elliptic.Curve) (EphemeralKey, error) {
 	priv, x, y, err := elliptic.GenerateKey(curve, rand.Reader)
 	rw := &ephemeralKey{
 		curve: curve,
@@ -25,7 +20,7 @@ func GenerateEphemeralKeypair(curveName string) (EphemeralKey, error) {
 }
 
 // getCurve returns a curve based on the name.
-func getCurve(name string) (elliptic.Curve, error) {
+func GetCurve(name string) (elliptic.Curve, error) {
 	switch name {
 	case "P224":
 		return elliptic.P224(), nil
