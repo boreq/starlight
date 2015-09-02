@@ -358,7 +358,12 @@ func (p *peer) handshake(ctx context.Context, iden node.Identity) error {
 	//
 
 	// Generate ephemeral key.
-	ephemeralKey, err := crypto.GenerateEphemeralKeypair(selectedCurve)
+	curve, err := crypto.GetCurve(selectedCurve)
+	if err != nil {
+		return err
+	}
+
+	ephemeralKey, err := crypto.GenerateEphemeralKeypair(curve)
 	if err != nil {
 		return err
 	}
