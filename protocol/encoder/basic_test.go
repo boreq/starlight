@@ -1,7 +1,7 @@
 package encoder
 
 import (
-	"github.com/boreq/netblog/protocol/message"
+	"github.com/boreq/lainnet/protocol/message"
 	"testing"
 )
 

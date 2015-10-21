@@ -1,7 +1,7 @@
 package network
 
 import (
-	"github.com/boreq/netblog/network/node"
+	"github.com/boreq/lainnet/network/node"
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/context"
 )

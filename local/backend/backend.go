@@ -1,7 +1,7 @@
 package backend
 
 import (
-	"github.com/boreq/netblog/core"
+	"github.com/boreq/lainnet/core"
 )
 
 func NewBackend(netblog core.Netblog) *Backend {

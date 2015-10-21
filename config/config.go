@@ -3,7 +3,7 @@ package config
 import (
 	"encoding/json"
 	"errors"
-	"github.com/boreq/netblog/network/node"
+	"github.com/boreq/lainnet/network/node"
 	"io/ioutil"
 	"os"
 	"os/user"

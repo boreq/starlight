@@ -1,7 +1,7 @@
 package dht
 
 import (
-	"github.com/boreq/netblog/network/node"
+	"github.com/boreq/lainnet/network/node"
 	"time"
 )
 

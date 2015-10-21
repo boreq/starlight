@@ -2,9 +2,9 @@ package network
 
 import (
 	"errors"
-	"github.com/boreq/netblog/network/node"
-	"github.com/boreq/netblog/network/peer"
-	"github.com/boreq/netblog/utils"
+	"github.com/boreq/lainnet/network/node"
+	"github.com/boreq/lainnet/network/peer"
+	"github.com/boreq/lainnet/utils"
 	"golang.org/x/net/context"
 	"net"
 	"reflect"

@@ -2,8 +2,8 @@ package commands
 
 import (
 	"fmt"
-	"github.com/boreq/netblog/cli"
-	"github.com/boreq/netblog/local/backend"
+	"github.com/boreq/lainnet/cli"
+	"github.com/boreq/lainnet/local/backend"
 	"time"
 )
 

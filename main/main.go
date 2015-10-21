@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/boreq/netblog/cli"
-	"github.com/boreq/netblog/main/commands"
+	"github.com/boreq/lainnet/cli"
+	"github.com/boreq/lainnet/main/commands"
 	"os"
 	"strings"
 )

@@ -2,9 +2,9 @@ package local
 
 import (
 	"fmt"
-	"github.com/boreq/netblog/core"
-	"github.com/boreq/netblog/local/backend"
-	"github.com/boreq/netblog/network/node"
+	"github.com/boreq/lainnet/core"
+	"github.com/boreq/lainnet/local/backend"
+	"github.com/boreq/lainnet/network/node"
 	"net"
 	"net/http"
 	"net/rpc"

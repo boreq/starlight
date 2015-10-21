@@ -1,6 +1,6 @@
 package commands
 
-import "github.com/boreq/netblog/cli"
+import "github.com/boreq/lainnet/cli"
 
 var MainCmd = cli.Command{
 	Options: []cli.Option{

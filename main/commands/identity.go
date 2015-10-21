@@ -2,9 +2,9 @@ package commands
 
 import (
 	"fmt"
-	"github.com/boreq/netblog/cli"
-	"github.com/boreq/netblog/config"
-	"github.com/boreq/netblog/network/node"
+	"github.com/boreq/lainnet/cli"
+	"github.com/boreq/lainnet/config"
+	"github.com/boreq/lainnet/network/node"
 )
 
 var identityCmd = cli.Command{

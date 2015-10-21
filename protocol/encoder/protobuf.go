@@ -2,7 +2,7 @@ package encoder
 
 import (
 	"errors"
-	"github.com/boreq/netblog/protocol/message"
+	"github.com/boreq/lainnet/protocol/message"
 	"github.com/golang/protobuf/proto"
 	"reflect"
 )

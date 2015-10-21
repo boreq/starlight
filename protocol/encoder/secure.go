@@ -6,7 +6,7 @@ import (
 	"crypto/hmac"
 	"encoding/binary"
 	"errors"
-	"github.com/boreq/netblog/crypto"
+	"github.com/boreq/lainnet/crypto"
 	"github.com/golang/protobuf/proto"
 	"hash"
 )

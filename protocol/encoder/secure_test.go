@@ -2,8 +2,8 @@ package encoder
 
 import (
 	"bytes"
-	"github.com/boreq/netblog/crypto"
-	"github.com/boreq/netblog/protocol/message"
+	"github.com/boreq/lainnet/crypto"
+	"github.com/boreq/lainnet/protocol/message"
 	"testing"
 )
 

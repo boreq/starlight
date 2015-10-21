@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
-	"github.com/boreq/netblog/crypto"
+	"github.com/boreq/lainnet/crypto"
 	"io/ioutil"
 	"path"
 )

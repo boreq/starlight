@@ -2,10 +2,10 @@ package commands
 
 import (
 	"errors"
-	"github.com/boreq/netblog/cli"
-	"github.com/boreq/netblog/config"
-	"github.com/boreq/netblog/network/node"
-	"github.com/boreq/netblog/utils"
+	"github.com/boreq/lainnet/cli"
+	"github.com/boreq/lainnet/config"
+	"github.com/boreq/lainnet/network/node"
+	"github.com/boreq/lainnet/utils"
 	"os"
 )
 

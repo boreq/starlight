@@ -1,9 +1,9 @@
 package core
 
 import (
-	"github.com/boreq/netblog/config"
-	"github.com/boreq/netblog/core/dht"
-	"github.com/boreq/netblog/network/node"
+	"github.com/boreq/lainnet/config"
+	"github.com/boreq/lainnet/core/dht"
+	"github.com/boreq/lainnet/network/node"
 	"golang.org/x/net/context"
 )
 
