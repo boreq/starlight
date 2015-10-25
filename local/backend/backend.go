@@ -4,9 +4,9 @@ import (
 	"github.com/boreq/lainnet/core"
 )
 
-func NewBackend(netblog core.Netblog) *Backend {
+func NewBackend(lainnet core.Lainnet) *Backend {
 	rw := &Backend{
-		netblog: netblog,
+		lainnet: lainnet,
 	}
 	return rw
 }
@@ -14,5 +14,5 @@ func NewBackend(netblog core.Netblog) *Backend {
 // Backend is an object which is registered on an RPC object and is used to
 // execute commands on a running daemon.
 type Backend struct {
-	netblog core.Netblog
+	lainnet core.Lainnet
 }

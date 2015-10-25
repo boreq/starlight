@@ -29,8 +29,8 @@ func daemon(c cli.Context) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	netblog := core.NewNetblog(ctx, *iden, conf)
-	netblog.Start()
+	lainnet := core.NewLainnet(ctx, *iden, conf)
+	lainnet.Start()
 
 	// Run local server.
 	address := local.GetAddress(iden.Id)
@@ -40,7 +40,7 @@ func daemon(c cli.Context) error {
 	}
 	defer os.Remove(address)
 
-	err = local.RunServer(netblog, address)
+	err = local.RunServer(lainnet, address)
 	if err != nil {
 		return err
 	}

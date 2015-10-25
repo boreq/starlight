@@ -7,14 +7,14 @@ import (
 	"golang.org/x/net/context"
 )
 
-type Netblog interface {
+type Lainnet interface {
 	Start() error
 	Identity() node.Identity
 	Dht() dht.DHT
 }
 
-func NewNetblog(ctx context.Context, ident node.Identity, config *config.Config) Netblog {
-	rw := &netblog{
+func NewLainnet(ctx context.Context, ident node.Identity, config *config.Config) Lainnet {
+	rw := &lainnet{
 		config: config,
 		ident:  ident,
 		dht:    dht.New(ctx, ident, config.ListenAddress),
@@ -23,26 +23,25 @@ func NewNetblog(ctx context.Context, ident node.Identity, config *config.Config)
 	return rw
 }
 
-type netblog struct {
+type lainnet struct {
 	config *config.Config
 	ident  node.Identity
 	dht    dht.DHT
 	ctx    context.Context
 }
 
-func (n *netblog) Identity() node.Identity {
+func (n *lainnet) Identity() node.Identity {
 	return n.ident
 }
 
-func (n *netblog) Dht() dht.DHT {
+func (n *lainnet) Dht() dht.DHT {
 	return n.dht
 }
 
-func (n *netblog) Start() error {
+func (n *lainnet) Start() error {
 	err := n.dht.Init(n.config.BootstrapNodes)
 	if err != nil {
 		return err
 	}
-
 	return nil
 }

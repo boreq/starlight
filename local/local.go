@@ -12,8 +12,8 @@ import (
 
 // RunServer runs a RPC server on a unix domain socket. The socket file will not
 // be removed after the listener closes.
-func RunServer(netblog core.Netblog, address string) error {
-	bend := backend.NewBackend(netblog)
+func RunServer(lainnet core.Lainnet, address string) error {
+	bend := backend.NewBackend(lainnet)
 	err := rpc.Register(bend)
 	if err != nil {
 		return err
@@ -35,5 +35,5 @@ func Dial(address string) (*rpc.Client, error) {
 
 // GetAddress returns an address of a RPC server for the provided node id.
 func GetAddress(localId node.ID) string {
-	return fmt.Sprintf("/tmp/netblog_%s.socket", localId)
+	return fmt.Sprintf("/tmp/lainnet_%s.socket", localId)
 }

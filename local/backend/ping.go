@@ -15,7 +15,7 @@ func (b *Backend) Ping(args *PingArgs, latency *float64) error {
 		return err
 	}
 
-	duration, err := b.netblog.Dht().Ping(id)
+	duration, err := b.lainnet.Dht().Ping(id)
 	if err != nil {
 		return err
 	}
