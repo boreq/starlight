@@ -1,13 +1,16 @@
 package peer
 
 import (
-	"bytes"
+	"crypto/cipher"
+	"crypto/hmac"
 	"errors"
 	"github.com/boreq/lainnet/crypto"
 	"github.com/boreq/lainnet/network/node"
 	"github.com/boreq/lainnet/protocol"
-	"github.com/boreq/lainnet/protocol/encoder"
 	"github.com/boreq/lainnet/protocol/message"
+	"github.com/boreq/lainnet/transport"
+	"github.com/boreq/lainnet/transport/basic"
+	"github.com/boreq/lainnet/transport/secure"
 	"github.com/boreq/lainnet/utils"
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/context"
@@ -15,6 +18,7 @@ import (
 	"net"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -51,16 +55,11 @@ var log = utils.GetLogger("peer")
 func New(ctx context.Context, iden node.Identity, listenAddress string, conn net.Conn) (Peer, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	p := &peer{
-		ctx:     ctx,
-		cancel:  cancel,
-		conn:    conn,
-		encoder: encoder.NewBasic(),
+		ctx:    ctx,
+		cancel: cancel,
+		conn:   conn,
 	}
-
-	p.in = make(chan []byte)
-	go receiveFromPeer(p.ctx, p.in, p.conn, p.Close)
-	p.out = make(chan []byte)
-	go sendToPeer(p.ctx, p.out, p.conn)
+	p.encoder, p.decoder = basic.New(conn)
 
 	hCtx, cancel := context.WithTimeout(p.ctx, handshakeTimeout)
 	defer cancel()
@@ -82,14 +81,15 @@ func New(ctx context.Context, iden node.Identity, listenAddress string, conn net
 }
 
 type peer struct {
-	id         node.ID
-	ctx        context.Context
-	cancel     context.CancelFunc
-	in         chan []byte
-	out        chan []byte
-	conn       net.Conn
-	listenAddr string
-	encoder    encoder.Encoder
+	id           node.ID
+	ctx          context.Context
+	cancel       context.CancelFunc
+	conn         net.Conn
+	listenAddr   string
+	encoder      transport.Encoder
+	encoderMutex sync.Mutex
+	decoder      transport.Decoder
+	decoderMutex sync.Mutex
 }
 
 func (p *peer) Info() node.NodeInfo {
@@ -119,7 +119,7 @@ func (p *peer) Close() {
 
 func (p *peer) Send(msg proto.Message) error {
 	log.Debugf("%s sending %s: %s", p.id, reflect.TypeOf(msg), msg)
-	data, err := p.encoder.Encode(msg)
+	data, err := protocol.Encode(msg)
 	if err != nil {
 		return err
 	}
@@ -128,7 +128,7 @@ func (p *peer) Send(msg proto.Message) error {
 
 func (p *peer) SendWithContext(ctx context.Context, msg proto.Message) error {
 	log.Debugf("%s sending %s: %s", p.id, reflect.TypeOf(msg), msg)
-	data, err := p.encoder.Encode(msg)
+	data, err := protocol.Encode(msg)
 	if err != nil {
 		return err
 	}
@@ -137,23 +137,14 @@ func (p *peer) SendWithContext(ctx context.Context, msg proto.Message) error {
 
 // send sends a raw message to the peer.
 func (p *peer) send(data []byte) error {
-	select {
-	case p.out <- data:
-		return nil
-	case <-p.ctx.Done():
-		return errors.New("Context closed, can not send")
-	}
+	p.encoderMutex.Lock()
+	defer p.encoderMutex.Unlock()
+	return p.encoder.Encode(data)
 }
 
 func (p *peer) sendWithContext(ctx context.Context, data []byte) error {
-	select {
-	case p.out <- data:
-		return nil
-	case <-ctx.Done():
-		return errors.New("Passed context closed, can not send " + ctx.Err().Error())
-	case <-p.ctx.Done():
-		return errors.New("Context closed, can not send")
-	}
+	// TODO
+	return p.send(data)
 }
 
 func (p *peer) Receive() (proto.Message, error) {
@@ -161,7 +152,7 @@ func (p *peer) Receive() (proto.Message, error) {
 	if err != nil {
 		return nil, err
 	}
-	return p.encoder.Decode(data)
+	return protocol.Decode(data)
 }
 
 func (p *peer) ReceiveWithContext(ctx context.Context) (proto.Message, error) {
@@ -169,84 +160,24 @@ func (p *peer) ReceiveWithContext(ctx context.Context) (proto.Message, error) {
 	if err != nil {
 		return nil, err
 	}
-	return p.encoder.Decode(data)
+	return protocol.Decode(data)
 }
 
 // receive receives a raw message from the peer.
 func (p *peer) receive() ([]byte, error) {
-	select {
-	case data, ok := <-p.in:
-		if !ok {
-			return nil, errors.New("Channel closed, can't receive")
-		}
-		return data, nil
-	case <-p.ctx.Done():
-		return nil, errors.New("Context closed, can't receive")
-	}
+	p.decoderMutex.Lock()
+	defer p.decoderMutex.Unlock()
+	return p.decoder.Decode()
 }
 
 // receiveWithContext receives a raw message to the peer but returns with an
 // error when ctx is closed.
 func (p *peer) receiveWithContext(ctx context.Context) (data []byte, err error) {
-	select {
-	case data, ok := <-p.in:
-		if !ok {
-			return nil, errors.New("Channel closed, can't receive")
-		}
-		return data, nil
-	case <-ctx.Done():
-		return nil, errors.New("Passed context closed, can't receive" + ctx.Err().Error())
-	case <-p.ctx.Done():
-		return nil, errors.New("Context closed, can't receive")
-	}
+	// TODO
+	return p.receive()
 }
 
 type cancelFunc func()
-
-// Receives messages from a peer and sends them into the channel. In case of
-// error the cancel func is called (which can for example close the underlying
-// connnection or perform other cleanup).
-func receiveFromPeer(ctx context.Context, in chan<- []byte, reader io.Reader, cancel cancelFunc) {
-	unmarshaler := protocol.NewUnmarshaler(ctx, in)
-	buf := make([]byte, 1024)
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			n, err := reader.Read(buf)
-			if err != nil {
-				cancel()
-				return
-			}
-			_, err = unmarshaler.Write(buf[:n])
-			if err != nil {
-				cancel()
-				return
-			}
-		}
-	}
-}
-
-// Reads messages from a channel and sends them to a peer.
-func sendToPeer(ctx context.Context, out <-chan []byte, writer io.Writer) {
-	buf := bytes.Buffer{}
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case data := <-out:
-			buf.Reset()
-			data, err := protocol.Marshal(data)
-			if err != nil {
-				continue
-			}
-			buf.Write(data)
-			buf.WriteTo(writer)
-		}
-	}
-}
 
 // selectParam
 func selectParam(a, b string) string {
@@ -260,6 +191,30 @@ func selectParam(a, b string) string {
 		}
 	}
 	return ""
+}
+
+func newSecure(rw io.ReadWriter, localKeys, remoteKeys crypto.StretchedKeys, hashName string, cipherName string) (transport.Encoder, transport.Decoder, error) {
+	hash, err := crypto.GetCryptoHash(hashName)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	localCipher, err := crypto.GetCipher(cipherName, localKeys.CipherKey)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	remoteCipher, err := crypto.GetCipher(cipherName, remoteKeys.CipherKey)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	encHmac := hmac.New(hash.New, localKeys.MacKey)
+	decHmac := hmac.New(hash.New, remoteKeys.MacKey)
+	encCipher := cipher.NewCBCEncrypter(localCipher, localKeys.IV)
+	decCipher := cipher.NewCBCDecrypter(remoteCipher, remoteKeys.IV)
+	enc, dec := secure.New(rw, decHmac, encHmac, decCipher, encCipher)
+	return enc, dec, nil
 }
 
 var nonceSize = 20
@@ -293,21 +248,13 @@ func (p *peer) handshake(ctx context.Context, iden node.Identity) error {
 	}
 
 	// Send Init message.
-	data, err := p.encoder.Encode(localInit)
-	if err != nil {
-		return err
-	}
-	err = p.sendWithContext(ctx, data)
+	err = p.SendWithContext(ctx, localInit)
 	if err != nil {
 		return err
 	}
 
 	// Receive Init message.
-	data, err = p.receiveWithContext(ctx)
-	if err != nil {
-		return err
-	}
-	msg, err := p.encoder.Decode(data)
+	msg, err := p.ReceiveWithContext(ctx)
 	if err != nil {
 		return err
 	}
@@ -379,21 +326,13 @@ func (p *peer) handshake(ctx context.Context, iden node.Identity) error {
 	}
 
 	// Send Handshake message.
-	data, err = p.encoder.Encode(localHandshake)
-	if err != nil {
-		return err
-	}
-	err = p.sendWithContext(ctx, data)
+	err = p.SendWithContext(ctx, localHandshake)
 	if err != nil {
 		return err
 	}
 
 	// Receive Handshake message.
-	data, err = p.receiveWithContext(ctx)
-	if err != nil {
-		return err
-	}
-	msg, err = p.encoder.Decode(data)
+	msg, err = p.ReceiveWithContext(ctx)
 	if err != nil {
 		return err
 	}
@@ -425,7 +364,7 @@ func (p *peer) handshake(ctx context.Context, iden node.Identity) error {
 	}
 
 	// Initiate the secure encoder.
-	enc, err := encoder.NewSecure(k1, k2, selectedHash, selectedCipher)
+	p.encoder, p.decoder, err = newSecure(p.conn, k1, k2, selectedHash, selectedCipher)
 	if err != nil {
 		return err
 	}
@@ -446,21 +385,13 @@ func (p *peer) handshake(ctx context.Context, iden node.Identity) error {
 	}
 
 	// Send ConfirmHandshake message.
-	data, err = enc.Encode(localConfirm)
-	if err != nil {
-		return err
-	}
-	err = p.sendWithContext(ctx, data)
+	err = p.SendWithContext(ctx, localConfirm)
 	if err != nil {
 		return err
 	}
 
 	// Receive ConfirmHandshake message.
-	data, err = p.receiveWithContext(ctx)
-	if err != nil {
-		return err
-	}
-	msg, err = enc.Decode(data)
+	msg, err = p.ReceiveWithContext(ctx)
 	if err != nil {
 		return err
 	}
@@ -486,7 +417,6 @@ func (p *peer) handshake(ctx context.Context, iden node.Identity) error {
 
 	// Finally set up the peer.
 	p.id = remoteId
-	p.encoder = enc
 
 	return nil
 }
@@ -501,21 +431,13 @@ func (p *peer) identify(ctx context.Context, listenAddr string) error {
 	}
 
 	// Send Identity message.
-	data, err := p.encoder.Encode(localIdentify)
-	if err != nil {
-		return err
-	}
-	err = p.sendWithContext(ctx, data)
+	err := p.SendWithContext(ctx, localIdentify)
 	if err != nil {
 		return err
 	}
 
 	// Receive Identity message.
-	data, err = p.receiveWithContext(ctx)
-	if err != nil {
-		return err
-	}
-	msg, err := p.encoder.Decode(data)
+	msg, err := p.ReceiveWithContext(ctx)
 	if err != nil {
 		return err
 	}

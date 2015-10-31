@@ -1,43 +1,66 @@
-// This package implements the protocol used to exchange information between
-// nodes participating in the network.
-//
-// Top level protocol structure:
-//     LEN      TYPE      DESCRIPTION
-//     4        uint32    Size of the message payload.
-//     ?        []byte    Message payload.
-//
-// Protocol operates in two states. Handshake is performed in 'basic' mode and
-// after completing it a switch to a 'secure' mode is made.
-//
-// Basic mode payload structure:
-//     LEN      TYPE      DESCRIPTION
-//     4        uint32    Type of the message.
-//     size-4   []byte    Protobuf encoded message.
-//
-// Secure mode payload structure:
-//     LEN      TYPE      DESCRIPTION
-//     ?        []byte    HMAC, length depends on hash type.
-//     size-?   []byte    Encrypted basic mode payload.
 package protocol
 
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
+	"github.com/boreq/lainnet/protocol/message"
+	"github.com/golang/protobuf/proto"
 )
 
-// Unmarshaler collects the data written to it and decodes it as defined by
-// the top level protocol structure.
-type Unmarshaler interface {
-	// Write adds more data to be decoded.
-	Write([]byte) (int, error)
-}
-
-// Marshal encodes the data as defined by the top level protocol structure.
-func Marshal(payload []byte) ([]byte, error) {
+func Encode(msg proto.Message) ([]byte, error) {
 	buf := &bytes.Buffer{}
-	if err := binary.Write(buf, binary.BigEndian, uint32(len(payload))); err != nil {
+
+	// Command.
+	cmd, err := cmdEncode(msg)
+	if err != nil {
 		return nil, err
 	}
-	buf.Write(payload)
+	if err := binary.Write(buf, binary.BigEndian, cmd); err != nil {
+		return nil, err
+	}
+
+	// Payload.
+	data, err := proto.Marshal(msg)
+	if err != nil {
+		return nil, err
+	}
+	buf.Write(data)
+
 	return buf.Bytes(), nil
+}
+
+func Decode(data []byte) (proto.Message, error) {
+	buf := bytes.NewBuffer(data)
+
+	// Decode command type.
+	var cmd uint32
+	if err := binary.Read(buf, binary.BigEndian, &cmd); err != nil {
+		return nil, err
+	}
+
+	// Payload. Unfortunately the switch has to be hardcoded.
+	var msg proto.Message
+	switch cmd {
+	case 1:
+		msg = &message.Init{}
+	case 2:
+		msg = &message.Handshake{}
+	case 3:
+		msg = &message.ConfirmHandshake{}
+	case 4:
+		msg = &message.Identity{}
+	case 5:
+		msg = &message.Ping{}
+	case 6:
+		msg = &message.Pong{}
+	case 7:
+		msg = &message.FindNode{}
+	case 8:
+		msg = &message.Nodes{}
+	default:
+		return nil, errors.New("Unknown message type")
+	}
+	err := proto.Unmarshal(buf.Bytes(), msg)
+	return msg, err
 }

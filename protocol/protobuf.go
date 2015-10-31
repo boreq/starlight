@@ -1,4 +1,4 @@
-package encoder
+package protocol
 
 import (
 	"errors"
@@ -18,7 +18,7 @@ var cmdMap = map[reflect.Type]uint32{
 	reflect.TypeOf(message.Nodes{}):            8,
 }
 
-// CmdEncode returns a value used in the protocol to indicate the type of a
+// cmdEncode returns a value used in the protocol to indicate the type of a
 // message.
 func cmdEncode(msg proto.Message) (uint32, error) {
 	typ := reflect.TypeOf(msg)
@@ -32,7 +32,7 @@ func cmdEncode(msg proto.Message) (uint32, error) {
 	return rw, nil
 }
 
-// CmdDecode returns a type which matches the value used in the protocol.
+// cmdDecode returns a type which matches the value used in the protocol.
 func cmdDecode(cmd uint32) (reflect.Type, error) {
 	for typ, value := range cmdMap {
 		if value == cmd {
