@@ -58,6 +58,10 @@ func Decode(data []byte) (proto.Message, error) {
 		msg = &message.FindNode{}
 	case 8:
 		msg = &message.Nodes{}
+	case 9:
+		msg = &message.PrivateMessage{}
+	case 10:
+		msg = &message.StorePubKey{}
 	default:
 		return nil, errors.New("Unknown message type")
 	}

@@ -41,3 +41,11 @@ message Nodes {
     }
     repeated NodeInfo Nodes = 1;
 }
+
+message PrivateMessage {
+    required string Text = 1;
+}
+
+message StorePubKey {
+    required bytes Key = 1;
+}

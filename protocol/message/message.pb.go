@@ -17,6 +17,8 @@ It has these top-level messages:
 	Pong
 	FindNode
 	Nodes
+	PrivateMessage
+	StorePubKey
 */
 package message
 
@@ -227,4 +229,36 @@ func (m *Nodes_NodeInfo) GetAddress() string {
 		return *m.Address
 	}
 	return ""
+}
+
+type PrivateMessage struct {
+	Text             *string `protobuf:"bytes,1,req" json:"Text,omitempty"`
+	XXX_unrecognized []byte  `json:"-"`
+}
+
+func (m *PrivateMessage) Reset()         { *m = PrivateMessage{} }
+func (m *PrivateMessage) String() string { return proto.CompactTextString(m) }
+func (*PrivateMessage) ProtoMessage()    {}
+
+func (m *PrivateMessage) GetText() string {
+	if m != nil && m.Text != nil {
+		return *m.Text
+	}
+	return ""
+}
+
+type StorePubKey struct {
+	Key              []byte `protobuf:"bytes,1,req" json:"Key,omitempty"`
+	XXX_unrecognized []byte `json:"-"`
+}
+
+func (m *StorePubKey) Reset()         { *m = StorePubKey{} }
+func (m *StorePubKey) String() string { return proto.CompactTextString(m) }
+func (*StorePubKey) ProtoMessage()    {}
+
+func (m *StorePubKey) GetKey() []byte {
+	if m != nil {
+		return m.Key
+	}
+	return nil
 }

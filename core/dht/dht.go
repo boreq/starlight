@@ -3,7 +3,9 @@ package dht
 import (
 	"container/list"
 	"errors"
+	"github.com/boreq/lainnet/core/dht/datastore"
 	"github.com/boreq/lainnet/core/dht/kbuckets"
+	"github.com/boreq/lainnet/crypto"
 	"github.com/boreq/lainnet/network"
 	"github.com/boreq/lainnet/network/node"
 	"github.com/boreq/lainnet/protocol/message"
@@ -19,23 +21,25 @@ const k = 20
 // System-wide concurrency parameter.
 const a = 3
 
-func New(ctx context.Context, ident node.Identity, address string) DHT {
+var log = utils.GetLogger("dht")
+
+func New(ctx context.Context, net network.Network, ident node.Identity) DHT {
 	rw := &dht{
-		ctx:  ctx,
-		net:  network.New(ctx, ident, address),
-		rt:   kbuckets.New(ident.Id, k),
-		self: ident.Id,
+		ctx:     ctx,
+		net:     net,
+		rt:      kbuckets.New(ident.Id, k),
+		self:    ident,
+		pubKeys: datastore.New(2 * time.Hour),
 	}
 	return rw
 }
 
-var log = utils.GetLogger("dht")
-
 type dht struct {
-	ctx  context.Context
-	net  network.Network
-	rt   kbuckets.RoutingTable
-	self node.ID
+	ctx     context.Context
+	net     network.Network
+	rt      kbuckets.RoutingTable
+	self    node.Identity
+	pubKeys *datastore.Datastore
 }
 
 func (d *dht) Init(nodes []node.NodeInfo) error {
@@ -53,12 +57,6 @@ func (d *dht) Init(nodes []node.NodeInfo) error {
 		}
 	}()
 
-	// Listen to incoming connections.
-	err := d.net.Listen()
-	if err != nil {
-		return err
-	}
-
 	// Init the DHT - populate buckets with initial nodes.
 	for _, nodeInfo := range nodes {
 		peer, err := d.net.Dial(nodeInfo)
@@ -75,10 +73,41 @@ func (d *dht) Init(nodes []node.NodeInfo) error {
 		}
 	}
 
+	// Init the DHT - refresh the more distant buckets.
+	// TODO
+
 	// Init the DHT - run FindNode on local node's id.
 	<-time.After(time.Second)
-	d.FindNode(d.self)
+	d.findNode(d.ctx, d.self.Id, false)
+
+	// Init the DHT - run the bootstrap once before returning and then
+	// continue in a loop.
+	d.bootstrap(d.ctx)
+	go d.runBootstrap(d.ctx, time.Hour)
+
 	return nil
+}
+
+func (d *dht) runBootstrap(ctx context.Context, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			d.bootstrap(ctx)
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func (d *dht) bootstrap(ctx context.Context) {
+	log.Debug("bootstrap")
+
+	// Refresh buckets.
+
+	// Republish.
+	d.PutPubKey(ctx, d.self.Id, d.self.PubKey)
 }
 
 func (d *dht) handleMessage(msg network.IncomingMessage) error {
@@ -87,7 +116,7 @@ func (d *dht) handleMessage(msg network.IncomingMessage) error {
 	switch pMsg := msg.Message.(type) {
 
 	case *message.Ping:
-		peer, err := d.Dial(msg.Sender.Id)
+		peer, err := d.Dial(d.ctx, msg.Sender.Id)
 		if err == nil {
 			random := pMsg.GetRandom()
 			response := &message.Pong{Random: &random}
@@ -105,33 +134,46 @@ func (d *dht) handleMessage(msg network.IncomingMessage) error {
 			response.Nodes = append(response.Nodes, ndInfo)
 		}
 
-		peer, err := d.Dial(msg.Sender.Id)
+		peer, err := d.Dial(d.ctx, msg.Sender.Id)
 		if err == nil {
 			peer.Send(response)
+		}
+
+	// A call to node.CompareId below don't allow other nodes to republish
+	// the data as there is no need to clutter the network with stale data.
+
+	case *message.StorePubKey:
+		pubKey, err := crypto.NewPublicKey(pMsg.GetKey())
+		if err == nil {
+			keyKey, err := pubKey.Hash()
+			if err == nil && node.CompareId(keyKey, msg.Sender.Id) {
+				keyBytes, err := pubKey.Bytes()
+				if err == nil {
+					d.pubKeys.Store(keyKey, keyBytes)
+				}
+			}
 		}
 	}
 	return nil
 }
 
-// Dial attempts to return an already active Peer and if there is no peer with
-// the right id connected it attempts to locate and dial it.
-func (d *dht) Dial(id node.ID) (network.Peer, error) {
+func (d *dht) Dial(ctx context.Context, id node.ID) (network.Peer, error) {
 	p, err := d.net.FindActive(id)
 	if err == nil {
 		return p, nil
 	}
-	nd, err := d.FindNode(id)
+	nd, err := d.FindNode(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 	return d.net.Dial(nd)
 }
 
-func (d *dht) Ping(id node.ID) (*time.Duration, error) {
+func (d *dht) Ping(ctx context.Context, id node.ID) (*time.Duration, error) {
 	ctx, cancel := context.WithTimeout(d.ctx, 5*time.Second)
 	defer cancel()
 
-	peer, err := d.Dial(id)
+	peer, err := d.Dial(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -214,25 +256,81 @@ func AddEntryToList(l *list.List, id node.ID, nd *node.NodeInfo) {
 	}
 }
 
-func (d *dht) FindNode(id node.ID) (node.NodeInfo, error) {
+func (d *dht) PutPubKey(ctx context.Context, id node.ID, key crypto.PublicKey) error {
+	// Prepare message.
+	keyBytes, err := key.Bytes()
+	if err != nil {
+		return err
+	}
+	msg := &message.StorePubKey{Key: keyBytes}
+
+	// Locate closest nodes.
+	nodes, err := d.findNode(ctx, id, false)
+	if err != nil {
+		return err
+	}
+	// Send 'k' store RPCs. We don't have to wait for this to finish so
+	// a goroutine with the DHT's context is used instead of blocking.
+	go func() {
+		counter := 0
+		for _, nodeInfo := range nodes {
+			peer, err := d.net.Dial(nodeInfo)
+			if err != nil {
+				err := peer.SendWithContext(d.ctx, msg)
+				if err == nil {
+					counter++
+					if counter > k {
+						return
+					}
+				}
+			}
+		}
+	}()
+	return nil
+}
+
+func (d *dht) FindNode(ctx context.Context, id node.ID) (node.NodeInfo, error) {
 	log.Debugf("FindNode %s", id)
-	ctx, cancel := context.WithTimeout(d.ctx, 20*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+
+	nodes, err := d.findNode(ctx, id, true)
+	if err != nil {
+		return node.NodeInfo{}, err
+	}
+	log.Debugf("FindNode got %d results", len(nodes))
+	if len(nodes) > 0 && node.CompareId(nodes[0].Id, id) {
+		return nodes[0], nil
+	} else {
+		return node.NodeInfo{}, errors.New("Node not found")
+	}
+}
+
+// findNode attempts to locate k closest nodes to a given key. If breakOnResult
+// is true the lookup will stop immidiately when a result with a matching key
+// is found. Otherwise the lookup will continue anyway to find k closest nodes.
+func (d *dht) findNode(ctx context.Context, id node.ID, breakOnResult bool) ([]node.NodeInfo, error) {
+	log.Debugf("findNode %s %s", id, breakOnResult)
+
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	results := list.New()
-	result := make(chan node.NodeInfo)
+	result := make(chan *list.List)
 
 	// Initial nodes from kbuckets. Take more than 'a' since some of them
 	// can be offline.
 	nodes := d.rt.GetClosest(id, k)
 	if len(nodes) == 0 {
-		return node.NodeInfo{}, errors.New("Could not locate the node")
+		log.Debug("findNode buckets empty, aborting")
+		return nodeDataListToSlice(results), errors.New("Could not locate the node")
 	}
 	for _, nd := range nodes {
-		if node.CompareId(nd.Id, id) {
-			return nd, nil
-		}
 		AddEntryToList(results, id, &nd)
+	}
+	if elem := results.Front(); elem != nil && node.CompareId(elem.Value.(NodeData).Info.Id, id) {
+		log.Debug("findNode found in buckets")
+		return nodeDataListToSlice(results), nil
 	}
 
 	// Handle incoming messages.
@@ -244,17 +342,17 @@ func (d *dht) FindNode(id node.ID) (node.NodeInfo, error) {
 			case msg := <-c:
 				switch pMsg := msg.Message.(type) {
 				case *message.Nodes:
-					log.Debug("FindNode response")
+					log.Debug("findNode response")
 					for _, nd := range pMsg.Nodes {
+						// Add to the list.
 						ndInfo := &node.NodeInfo{nd.GetId(), nd.GetAddress()}
-						// If this is the right node just send it to be returned.
-						if node.CompareId(nd.GetId(), id) {
-							result <- *ndInfo
+						AddEntryToList(results, id, ndInfo)
+						log.Debugf("findNode new node from response %s", ndInfo.Id)
+						// If this is the right node return the results already.
+						if breakOnResult && node.CompareId(nd.GetId(), id) {
+							result <- results
 							return
 						}
-						// Otherwise add this node to the list of nodes which should be further queried.
-						log.Debugf("FindNode new node from response %s", ndInfo.Id)
-						AddEntryToList(results, id, ndInfo)
 					}
 				}
 			case <-ctx.Done():
@@ -269,37 +367,50 @@ func (d *dht) FindNode(id node.ID) (node.NodeInfo, error) {
 		counterIter := 0
 		for elem := results.Front(); elem != nil; elem = elem.Next() {
 			counterIter++
+			// Stop after sending 'a' messages and await results.
 			if counterSent > a {
 				break
 			}
+			// Stop if messages were already sent to 'k' closest nodes.
 			if counterIter > k {
-				return node.NodeInfo{}, errors.New("Could not locate the node")
+				return nodeDataListToSlice(results), nil
 			}
+			// Send new messages.
 			entry := elem.Value.(NodeData)
 			if !entry.Processed {
 				entry.Processed = true
-				log.Debugf("FindNode dial %s", entry.Info.Id)
+				log.Debugf("findNode dial %s", entry.Info.Id)
 				peer, err := d.net.Dial(*entry.Info)
 				if err == nil {
 					counterSent++
 					msg := &message.FindNode{Id: id}
-					log.Debugf("FindNode send %x", entry.Info.Id)
+					log.Debugf("findNode send %x", entry.Info.Id)
 					go peer.SendWithContext(ctx, msg)
 				}
 			}
 		}
 
 		// Await results.
-		log.Debug("FindNode waiting")
+		log.Debug("findNode waiting")
 		select {
-		case nd := <-result:
-			log.Debugf("FindNode result: %s on %s", nd.Id, nd.Address)
-			return nd, nil
+		case <-result:
+			return nodeDataListToSlice(results), nil
 		case <-ctx.Done():
-			return node.NodeInfo{}, ctx.Err()
-		case <-time.After(2 * time.Second):
+			return nodeDataListToSlice(results), ctx.Err()
+		case <-time.After(1 * time.Second):
 		}
 	}
+}
+
+func nodeDataListToSlice(l *list.List) []node.NodeInfo {
+	rv := make([]node.NodeInfo, l.Len())
+	i := 0
+	for elem := l.Front(); elem != nil; elem = elem.Next() {
+		entry := elem.Value.(NodeData)
+		rv[i] = *entry.Info
+		i++
+	}
+	return rv
 }
 
 // Calculates the distance between two nodes.

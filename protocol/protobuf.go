@@ -16,6 +16,8 @@ var cmdMap = map[reflect.Type]uint32{
 	reflect.TypeOf(message.Pong{}):             6,
 	reflect.TypeOf(message.FindNode{}):         7,
 	reflect.TypeOf(message.Nodes{}):            8,
+	reflect.TypeOf(message.PrivateMessage{}):   9,
+	reflect.TypeOf(message.StorePubKey{}):      10,
 }
 
 // cmdEncode returns a value used in the protocol to indicate the type of a
@@ -30,14 +32,4 @@ func cmdEncode(msg proto.Message) (uint32, error) {
 		return 0, errors.New("Unknown message type")
 	}
 	return rw, nil
-}
-
-// cmdDecode returns a type which matches the value used in the protocol.
-func cmdDecode(cmd uint32) (reflect.Type, error) {
-	for typ, value := range cmdMap {
-		if value == cmd {
-			return typ, nil
-		}
-	}
-	return nil, errors.New("Unknown message type")
 }
