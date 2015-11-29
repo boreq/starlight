@@ -6,6 +6,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"github.com/boreq/lainnet/crypto"
+	"github.com/boreq/lainnet/utils"
 	"io/ioutil"
 	"path"
 )
@@ -52,8 +53,26 @@ type NodeInfo struct {
 
 const minKeyBits = 2048
 
-func CompareId(a ID, b ID) bool {
+// CompareId returns true if two IDs are exactly the same.
+func CompareId(a, b ID) bool {
 	return bytes.Compare(a, b) == 0
+}
+
+// Distance calculates the distance between two nodes.
+func Distance(a, b ID) ([]byte, error) {
+	// XOR is the distance metric, to actually get a meaningful distance
+	// from it we just count the preceeding zeros.
+	return utils.XOR(a, b)
+}
+
+// ValidateId returns true if a node id is valid - has proper length and proper
+// structure (correct length of a prefix consisting of zero bits).
+func ValidateId(id ID) bool {
+	if len(id) != crypto.KeyDigestLength {
+		return false
+	}
+	// TODO implement the prefix checks
+	return true
 }
 
 // Generates a fresh identity (keypair) for a local node.
