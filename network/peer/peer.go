@@ -26,6 +26,9 @@ type Peer interface {
 	// Returns information about the node.
 	Info() node.NodeInfo
 
+	// Returns the node's public key.
+	PubKey() crypto.PublicKey
+
 	// Sends a message to the node.
 	Send(proto.Message) error
 
@@ -82,6 +85,7 @@ func New(ctx context.Context, iden node.Identity, listenAddress string, conn net
 
 type peer struct {
 	id           node.ID
+	pubKey       crypto.PublicKey
 	ctx          context.Context
 	cancel       context.CancelFunc
 	conn         net.Conn
@@ -101,6 +105,10 @@ func (p *peer) Info() node.NodeInfo {
 		Id:      p.id,
 		Address: address,
 	}
+}
+
+func (p *peer) PubKey() crypto.PublicKey {
+	return p.pubKey
 }
 
 func (p *peer) Closed() bool {
@@ -417,6 +425,7 @@ func (p *peer) handshake(ctx context.Context, iden node.Identity) error {
 
 	// Finally set up the peer.
 	p.id = remoteId
+	p.pubKey = remotePub
 
 	return nil
 }

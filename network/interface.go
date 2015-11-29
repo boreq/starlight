@@ -1,6 +1,7 @@
 package network
 
 import (
+	"github.com/boreq/lainnet/crypto"
 	"github.com/boreq/lainnet/network/node"
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/context"
@@ -35,6 +36,9 @@ type Network interface {
 type Peer interface {
 	// Returns information about the peer.
 	Info() node.NodeInfo
+
+	// Returns the node's public key.
+	PubKey() crypto.PublicKey
 
 	// Sends a message to a node.
 	Send(proto.Message) error
