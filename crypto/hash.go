@@ -15,7 +15,12 @@ func Digest(hash hash.Hash, data []byte) []byte {
 	return hash.Sum(sum)
 }
 
+// keyDigestHash is a hash used by the KeyDigest function.
 var keyDigestHash = sha256.New()
+
+// KeyDigestLength is a length of a key digest produced by the KeyDigest
+// function.
+var KeyDigestLength = keyDigestHash.Size()
 
 // KeyDigest calculates a SHA256 checksum of a key.
 func KeyDigest(key Key) ([]byte, error) {
