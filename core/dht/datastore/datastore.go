@@ -17,7 +17,7 @@ func New(threshold time.Duration) *Datastore {
 }
 
 type item struct {
-	data []byte
+	data interface{}
 	time time.Time
 }
 
@@ -28,7 +28,7 @@ type Datastore struct {
 }
 
 // Store removes the stale data and stores a new entry.
-func (d *Datastore) Store(key, data []byte) error {
+func (d *Datastore) Store(key, data interface{}) error {
 	d.cleanup()
 	sKey := fmt.Sprintf("%x", key)
 	d.items[sKey] = item{data, time.Now()}
@@ -36,7 +36,7 @@ func (d *Datastore) Store(key, data []byte) error {
 }
 
 // Get removes an entry from the datastore. A stale entry can be removed.
-func (d *Datastore) Get(key []byte) ([]byte, error) {
+func (d *Datastore) Get(key []byte) (interface{}, error) {
 	sKey := fmt.Sprintf("%x", key)
 	item, ok := d.items[sKey]
 	if !ok {
