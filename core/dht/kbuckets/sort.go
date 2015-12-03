@@ -15,8 +15,8 @@ func (s sortEntries) Len() int {
 }
 
 func (s sortEntries) Less(i, j int) bool {
-	iDis, _ := distance(s.target, s.e[i].Id)
-	jDis, _ := distance(s.target, s.e[j].Id)
+	iDis, _ := node.Distance(s.target, s.e[i].Id)
+	jDis, _ := node.Distance(s.target, s.e[j].Id)
 	cmp, _ := utils.Compare(iDis, jDis)
 	return cmp < 0
 }

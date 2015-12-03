@@ -70,7 +70,7 @@ func (b *buckets) update(id node.ID, address string) {
 
 // Returns an index of a bucket in which the given node should reside.
 func (b *buckets) bucketIndex(id node.ID) (int, error) {
-	dis, err := distance(b.self, id)
+	dis, err := node.Distance(b.self, id)
 	if err != nil {
 		return 0, err
 	}
@@ -107,11 +107,4 @@ func (b *buckets) GetClosest(id node.ID, a int) []node.NodeInfo {
 		}
 		return se.e[:n]
 	}
-}
-
-// Calculates the distance between two nodes.
-func distance(a, b node.ID) ([]byte, error) {
-	// XOR is the distance metric, to actually get a meaningful distance
-	// from it we just count the preceeding zeros.
-	return utils.XOR(a, b)
 }
