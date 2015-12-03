@@ -6,6 +6,10 @@ build:
 run:
 	./main/main
 
+doc:
+	@echo "http://localhost:6060/pkg/github.com/boreq/lainnet/"
+	godoc -http=:6060
+
 test:
 	go test ./...
 
