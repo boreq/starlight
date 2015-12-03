@@ -109,6 +109,10 @@ func (n *network) newConnection(ctx context.Context, conn net.Conn) (peer.Peer, 
 func (n *network) Dial(nd node.NodeInfo) (Peer, error) {
 	log.Debugf("Dial: %s on %s", nd.Id, nd.Address)
 
+	if node.CompareId(nd.Id, n.iden.Id) {
+		return nil, errors.New("Tried calling a local id")
+	}
+
 	// Try to return an already existing peer.
 	n.plock.Lock()
 	p, err := n.findActive(nd.Id)
