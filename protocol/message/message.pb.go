@@ -19,6 +19,8 @@ It has these top-level messages:
 	Nodes
 	PrivateMessage
 	StorePubKey
+	FindPubKey
+	StoreChannel
 */
 package message
 
@@ -259,6 +261,62 @@ func (*StorePubKey) ProtoMessage()    {}
 func (m *StorePubKey) GetKey() []byte {
 	if m != nil {
 		return m.Key
+	}
+	return nil
+}
+
+type FindPubKey struct {
+	Id               []byte `protobuf:"bytes,1,req" json:"Id,omitempty"`
+	XXX_unrecognized []byte `json:"-"`
+}
+
+func (m *FindPubKey) Reset()         { *m = FindPubKey{} }
+func (m *FindPubKey) String() string { return proto.CompactTextString(m) }
+func (*FindPubKey) ProtoMessage()    {}
+
+func (m *FindPubKey) GetId() []byte {
+	if m != nil {
+		return m.Id
+	}
+	return nil
+}
+
+type StoreChannel struct {
+	ChannelId        []byte `protobuf:"bytes,1,req" json:"ChannelId,omitempty"`
+	NodeId           []byte `protobuf:"bytes,2,req" json:"NodeId,omitempty"`
+	Timestamp        *int64 `protobuf:"varint,3,req" json:"Timestamp,omitempty"`
+	Signature        []byte `protobuf:"bytes,4,req" json:"Signature,omitempty"`
+	XXX_unrecognized []byte `json:"-"`
+}
+
+func (m *StoreChannel) Reset()         { *m = StoreChannel{} }
+func (m *StoreChannel) String() string { return proto.CompactTextString(m) }
+func (*StoreChannel) ProtoMessage()    {}
+
+func (m *StoreChannel) GetChannelId() []byte {
+	if m != nil {
+		return m.ChannelId
+	}
+	return nil
+}
+
+func (m *StoreChannel) GetNodeId() []byte {
+	if m != nil {
+		return m.NodeId
+	}
+	return nil
+}
+
+func (m *StoreChannel) GetTimestamp() int64 {
+	if m != nil && m.Timestamp != nil {
+		return *m.Timestamp
+	}
+	return 0
+}
+
+func (m *StoreChannel) GetSignature() []byte {
+	if m != nil {
+		return m.Signature
 	}
 	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"github.com/boreq/lainnet/protocol/message"
 	"github.com/golang/protobuf/proto"
 )
@@ -62,7 +63,12 @@ func Decode(data []byte) (proto.Message, error) {
 		msg = &message.PrivateMessage{}
 	case 10:
 		msg = &message.StorePubKey{}
+	case 11:
+		msg = &message.FindPubKey{}
+	case 12:
+		msg = &message.StoreChannel{}
 	default:
+		panic(fmt.Sprintf("decode unknown msg type %d", cmd))
 		return nil, errors.New("Unknown message type")
 	}
 	err := proto.Unmarshal(buf.Bytes(), msg)

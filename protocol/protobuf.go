@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"errors"
+	"fmt"
 	"github.com/boreq/lainnet/protocol/message"
 	"github.com/golang/protobuf/proto"
 	"reflect"
@@ -18,6 +19,8 @@ var cmdMap = map[reflect.Type]uint32{
 	reflect.TypeOf(message.Nodes{}):            8,
 	reflect.TypeOf(message.PrivateMessage{}):   9,
 	reflect.TypeOf(message.StorePubKey{}):      10,
+	reflect.TypeOf(message.FindPubKey{}):       11,
+	reflect.TypeOf(message.StoreChannel{}):     12,
 }
 
 // cmdEncode returns a value used in the protocol to indicate the type of a
@@ -29,6 +32,7 @@ func cmdEncode(msg proto.Message) (uint32, error) {
 	}
 	rw, ok := cmdMap[typ]
 	if !ok {
+		panic(fmt.Sprintf("encode unknown msg type %s", msg))
 		return 0, errors.New("Unknown message type")
 	}
 	return rw, nil

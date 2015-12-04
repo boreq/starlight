@@ -49,3 +49,14 @@ message PrivateMessage {
 message StorePubKey {
     required bytes Key = 1;
 }
+
+message FindPubKey {
+    required bytes Id = 1;
+}
+
+message StoreChannel {
+    required bytes ChannelId = 1;
+    required bytes NodeId = 2;
+    required int64 Timestamp = 3;
+    required bytes Signature = 4;
+}
