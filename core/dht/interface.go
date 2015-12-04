@@ -23,9 +23,17 @@ type DHT interface {
 	// FindNode attempts to locate a node and return its address.
 	FindNode(ctx context.Context, id node.ID) (node.NodeInfo, error)
 
-	//// GetPubKey returns the public key of the specified node.
-	//GetPubKey(ctx context.Context, id node.ID) ([]byte, error)
+	// GetPubKey returns the public key of the specified node.
+	GetPubKey(ctx context.Context, id node.ID) ([]byte, error)
 
 	// PutPubKey stores the public key of the specified node.
 	PutPubKey(ctx context.Context, id node.ID, key crypto.PublicKey) error
+
+	//// GetChannel
+	//GetChannel(ctx context.Context, id []byte) ([]node.Id, error)
+
+	// PutChannel stores the information about this node being in the
+	// specifed channel. Other nodes can recover this information to know
+	// which nodes should receive messages related to that channel.
+	PutChannel(ctx context.Context, id []byte) error
 }

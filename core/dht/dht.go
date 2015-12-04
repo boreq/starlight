@@ -5,11 +5,11 @@ import (
 	"errors"
 	"github.com/boreq/lainnet/core/dht/datastore"
 	"github.com/boreq/lainnet/core/dht/kbuckets"
-	"github.com/boreq/lainnet/crypto"
 	"github.com/boreq/lainnet/network"
 	"github.com/boreq/lainnet/network/node"
 	"github.com/boreq/lainnet/protocol/message"
 	"github.com/boreq/lainnet/utils"
+	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/context"
 	"math/rand"
 	"time"
@@ -20,6 +20,8 @@ const k = 20
 
 // System-wide concurrency parameter.
 const a = 3
+
+const signingHash = "SHA256"
 
 var log = utils.GetLogger("dht")
 
@@ -50,7 +52,7 @@ func (d *dht) Init(nodes []node.NodeInfo) error {
 		for {
 			select {
 			case msg := <-c:
-				go d.handleMessage(msg)
+				go d.handleMessage(d.ctx, msg)
 			case <-d.ctx.Done():
 				return
 			}
@@ -82,7 +84,10 @@ func (d *dht) Init(nodes []node.NodeInfo) error {
 
 	// Init the DHT - run the bootstrap once before returning and then
 	// continue in a loop.
-	d.bootstrap(d.ctx)
+	err := d.bootstrap(d.ctx)
+	if err != nil {
+		return err
+	}
 	go d.runBootstrap(d.ctx, time.Hour)
 
 	return nil
@@ -101,22 +106,28 @@ func (d *dht) runBootstrap(ctx context.Context, interval time.Duration) {
 	}
 }
 
-func (d *dht) bootstrap(ctx context.Context) {
+func (d *dht) bootstrap(ctx context.Context) error {
 	log.Debug("bootstrap")
 
 	// Refresh buckets.
+	// TODO
 
 	// Republish.
-	d.PutPubKey(ctx, d.self.Id, d.self.PubKey)
+	err := d.PutPubKey(ctx, d.self.Id, d.self.PubKey)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func (d *dht) handleMessage(msg network.IncomingMessage) error {
+func (d *dht) handleMessage(ctx context.Context, msg network.IncomingMessage) error {
 	d.rt.Update(msg.Sender.Id, msg.Sender.Address)
 
 	switch pMsg := msg.Message.(type) {
 
 	case *message.Ping:
-		peer, err := d.Dial(d.ctx, msg.Sender.Id)
+		peer, err := d.Dial(ctx, msg.Sender.Id)
 		if err == nil {
 			random := pMsg.GetRandom()
 			response := &message.Pong{Random: &random}
@@ -124,35 +135,21 @@ func (d *dht) handleMessage(msg network.IncomingMessage) error {
 		}
 
 	case *message.FindNode:
-		nodes := d.rt.GetClosest(pMsg.GetId(), k)
-		response := &message.Nodes{}
-		for i := 0; i < len(nodes); i++ {
-			ndInfo := &message.Nodes_NodeInfo{
-				Id:      nodes[i].Id,
-				Address: &nodes[i].Address,
-			}
-			response.Nodes = append(response.Nodes, ndInfo)
-		}
-
-		peer, err := d.Dial(d.ctx, msg.Sender.Id)
+		response := d.createNodesMessage(pMsg.GetId())
+		peer, err := d.Dial(ctx, msg.Sender.Id)
 		if err == nil {
 			peer.Send(response)
 		}
 
-	// A call to node.CompareId below don't allow other nodes to republish
-	// the data as there is no need to clutter the network with stale data.
-
 	case *message.StorePubKey:
-		pubKey, err := crypto.NewPublicKey(pMsg.GetKey())
-		if err == nil {
-			keyKey, err := pubKey.Hash()
-			if err == nil && node.CompareId(keyKey, msg.Sender.Id) {
-				keyBytes, err := pubKey.Bytes()
-				if err == nil {
-					d.pubKeys.Store(keyKey, keyBytes)
-				}
-			}
-		}
+		d.handleStorePubKeyMsg(ctx, msg.Sender, pMsg)
+
+	case *message.FindPubKey:
+		d.handleFindPubKeyMsg(ctx, msg.Sender, pMsg)
+
+	case *message.StoreChannel:
+		d.handleStoreChannelMsg(ctx, pMsg)
+
 	}
 	return nil
 }
@@ -233,7 +230,7 @@ func AddEntryToList(l *list.List, id node.ID, nd *node.NodeInfo) {
 		return
 	}
 
-	newEntry := NodeData{
+	newEntry := &NodeData{
 		&node.NodeInfo{nd.Id, nd.Address},
 		distance,
 		false,
@@ -241,7 +238,7 @@ func AddEntryToList(l *list.List, id node.ID, nd *node.NodeInfo) {
 
 	var elem *list.Element = nil
 	for elem = l.Front(); elem != nil; elem = elem.Next() {
-		entry := elem.Value.(NodeData)
+		entry := elem.Value.(*NodeData)
 		// If new one is closer insert it before this element.
 		res, _ := utils.Compare(distance, entry.Distance)
 		if res > 0 {
@@ -254,39 +251,6 @@ func AddEntryToList(l *list.List, id node.ID, nd *node.NodeInfo) {
 	} else {
 		l.PushBack(newEntry)
 	}
-}
-
-func (d *dht) PutPubKey(ctx context.Context, id node.ID, key crypto.PublicKey) error {
-	// Prepare message.
-	keyBytes, err := key.Bytes()
-	if err != nil {
-		return err
-	}
-	msg := &message.StorePubKey{Key: keyBytes}
-
-	// Locate closest nodes.
-	nodes, err := d.findNode(ctx, id, false)
-	if err != nil {
-		return err
-	}
-	// Send 'k' store RPCs. We don't have to wait for this to finish so
-	// a goroutine with the DHT's context is used instead of blocking.
-	go func() {
-		counter := 0
-		for _, nodeInfo := range nodes {
-			peer, err := d.net.Dial(nodeInfo)
-			if err != nil {
-				err := peer.SendWithContext(d.ctx, msg)
-				if err == nil {
-					counter++
-					if counter > k {
-						return
-					}
-				}
-			}
-		}
-	}()
-	return nil
 }
 
 func (d *dht) FindNode(ctx context.Context, id node.ID) (node.NodeInfo, error) {
@@ -306,11 +270,38 @@ func (d *dht) FindNode(ctx context.Context, id node.ID) (node.NodeInfo, error) {
 	}
 }
 
+type messageFactory func(id node.ID) proto.Message
+
+// createNodesMessage creates a Nodes message with the 'k' known nodes closest
+// to the provided id.
+func (d *dht) createNodesMessage(id node.ID) *message.Nodes {
+	nodes := d.rt.GetClosest(id, k)
+	msg := &message.Nodes{}
+	for i := 0; i < len(nodes); i++ {
+		ndInfo := &message.Nodes_NodeInfo{
+			Id:      nodes[i].Id,
+			Address: &nodes[i].Address,
+		}
+		msg.Nodes = append(msg.Nodes, ndInfo)
+	}
+	return msg
+}
+
+func (d *dht) findNode(ctx context.Context, id node.ID, breakOnResult bool) ([]node.NodeInfo, error) {
+	msgFactory := func(id node.ID) proto.Message {
+		rv := &message.FindNode{
+			Id: id,
+		}
+		return rv
+	}
+	return d.findNodeCustom(ctx, id, msgFactory, breakOnResult)
+}
+
 // findNode attempts to locate k closest nodes to a given key. If breakOnResult
 // is true the lookup will stop immidiately when a result with a matching key
 // is found. Otherwise the lookup will continue anyway to find k closest nodes.
-func (d *dht) findNode(ctx context.Context, id node.ID, breakOnResult bool) ([]node.NodeInfo, error) {
-	log.Debugf("findNode %s %s", id, breakOnResult)
+func (d *dht) findNodeCustom(ctx context.Context, id node.ID, msgFac messageFactory, breakOnResult bool) ([]node.NodeInfo, error) {
+	log.Debugf("findNode %s, break: %t", id, breakOnResult)
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -328,7 +319,7 @@ func (d *dht) findNode(ctx context.Context, id node.ID, breakOnResult bool) ([]n
 	for _, nd := range nodes {
 		AddEntryToList(results, id, &nd)
 	}
-	if elem := results.Front(); elem != nil && node.CompareId(elem.Value.(NodeData).Info.Id, id) {
+	if elem := results.Front(); elem != nil && node.CompareId(elem.Value.(*NodeData).Info.Id, id) {
 		log.Debug("findNode found in buckets")
 		return nodeDataListToSlice(results), nil
 	}
@@ -342,16 +333,18 @@ func (d *dht) findNode(ctx context.Context, id node.ID, breakOnResult bool) ([]n
 			case msg := <-c:
 				switch pMsg := msg.Message.(type) {
 				case *message.Nodes:
-					log.Debug("findNode response")
 					for _, nd := range pMsg.Nodes {
 						// Add to the list.
 						ndInfo := &node.NodeInfo{nd.GetId(), nd.GetAddress()}
-						AddEntryToList(results, id, ndInfo)
-						log.Debugf("findNode new node from response %s", ndInfo.Id)
-						// If this is the right node return the results already.
-						if breakOnResult && node.CompareId(nd.GetId(), id) {
-							result <- results
-							return
+						if !node.CompareId(ndInfo.Id, d.self.Id) {
+							AddEntryToList(results, id, ndInfo)
+							log.Debugf("findNode new node from response %s", ndInfo.Id)
+							// If this is the right node return the results already.
+							// TODO fix this
+							if breakOnResult && node.CompareId(nd.GetId(), id) {
+								result <- results
+								return
+							}
 						}
 					}
 				}
@@ -360,6 +353,8 @@ func (d *dht) findNode(ctx context.Context, id node.ID, breakOnResult bool) ([]n
 			}
 		}
 	}()
+
+	var noBetterResults bool = false
 
 	for {
 		// Send new FindNode messages.
@@ -371,12 +366,24 @@ func (d *dht) findNode(ctx context.Context, id node.ID, breakOnResult bool) ([]n
 			if counterSent > a {
 				break
 			}
+
 			// Stop if messages were already sent to 'k' closest nodes.
 			if counterIter > k {
 				return nodeDataListToSlice(results), nil
 			}
+
+			// Iterated over all results and nothing was sent more
+			// than on time in a row - nothing new was received.
+			if counterSent == 0 && elem.Next() == nil {
+				if !noBetterResults {
+					noBetterResults = true
+				} else {
+					return nodeDataListToSlice(results), nil
+				}
+			}
+
 			// Send new messages.
-			entry := elem.Value.(NodeData)
+			entry := elem.Value.(*NodeData)
 			if !entry.Processed {
 				entry.Processed = true
 				log.Debugf("findNode dial %s", entry.Info.Id)
@@ -384,7 +391,7 @@ func (d *dht) findNode(ctx context.Context, id node.ID, breakOnResult bool) ([]n
 				if err == nil {
 					counterSent++
 					msg := &message.FindNode{Id: id}
-					log.Debugf("findNode send %x", entry.Info.Id)
+					log.Debugf("findNode send to %s", entry.Info.Id)
 					go peer.SendWithContext(ctx, msg)
 				}
 			}
@@ -406,7 +413,7 @@ func nodeDataListToSlice(l *list.List) []node.NodeInfo {
 	rv := make([]node.NodeInfo, l.Len())
 	i := 0
 	for elem := l.Front(); elem != nil; elem = elem.Next() {
-		entry := elem.Value.(NodeData)
+		entry := elem.Value.(*NodeData)
 		rv[i] = *entry.Info
 		i++
 	}
