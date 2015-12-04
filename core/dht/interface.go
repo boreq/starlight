@@ -24,7 +24,7 @@ type DHT interface {
 	FindNode(ctx context.Context, id node.ID) (node.NodeInfo, error)
 
 	// GetPubKey returns the public key of the specified node.
-	GetPubKey(ctx context.Context, id node.ID) ([]byte, error)
+	GetPubKey(ctx context.Context, id node.ID) (crypto.PublicKey, error)
 
 	// PutPubKey stores the public key of the specified node.
 	PutPubKey(ctx context.Context, id node.ID, key crypto.PublicKey) error
