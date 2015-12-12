@@ -1,6 +1,7 @@
 package crypto
 
 import (
+	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -24,11 +25,7 @@ func (k rsaPrivateKey) PublicKey() PublicKey {
 	return rsaPublicKey{&k.key.PublicKey}
 }
 
-func (k rsaPrivateKey) Sign(data []byte, hashName string) ([]byte, error) {
-	hash, err := GetCryptoHash(hashName)
-	if err != nil {
-		return nil, err
-	}
+func (k rsaPrivateKey) Sign(data []byte, hash crypto.Hash) ([]byte, error) {
 	hashed := Digest(hash.New(), data)
 	return rsa.SignPKCS1v15(rand.Reader, k.key, hash, hashed)
 }
@@ -55,11 +52,7 @@ func (k rsaPublicKey) Hash() ([]byte, error) {
 	return KeyDigest(k)
 }
 
-func (k rsaPublicKey) Validate(data, signature []byte, hashName string) error {
-	hash, err := GetCryptoHash(hashName)
-	if err != nil {
-		return err
-	}
+func (k rsaPublicKey) Validate(data, signature []byte, hash crypto.Hash) error {
 	hashed := Digest(hash.New(), data)
 	return rsa.VerifyPKCS1v15(k.key, hash, hashed, signature)
 }

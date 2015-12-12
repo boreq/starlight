@@ -1,6 +1,9 @@
 package crypto
 
-import "crypto/rand"
+import (
+	"crypto"
+	"crypto/rand"
+)
 
 type Key interface {
 	Bytes() ([]byte, error)
@@ -13,17 +16,15 @@ type PrivateKey interface {
 	// PublicKey returns the underlying public key.
 	PublicKey() PublicKey
 
-	// Sign signs the provided data using a hash function with a given
-	// name in the process.
-	Sign(data []byte, hashName string) ([]byte, error)
+	// Sign signs the provided data using a given hash function.
+	Sign(data []byte, hash crypto.Hash) ([]byte, error)
 }
 
 type PublicKey interface {
 	Key
 
-	// Validate validates a signature using a hash function with a given
-	// name in the process.
-	Validate(data, signature []byte, hashName string) error
+	// Validate validates a signature using a given hash function.
+	Validate(data, signature []byte, hash crypto.Hash) error
 }
 
 type EphemeralKey interface {
