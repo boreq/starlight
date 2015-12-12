@@ -2,17 +2,11 @@ package network
 
 import (
 	"github.com/boreq/lainnet/crypto"
+	"github.com/boreq/lainnet/network/dispatcher"
 	"github.com/boreq/lainnet/network/node"
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/context"
 )
-
-// Since all incoming messages are passed on the same channel they must be
-// bundled with a node.ID.
-type IncomingMessage struct {
-	Sender  node.NodeInfo
-	Message proto.Message
-}
 
 // Network is used to exchange messages with other nodes participating in the
 // network.
@@ -29,7 +23,7 @@ type Network interface {
 
 	// Subscribe returns a channel on which it is possible to receive all
 	// incoming messages. CancelFunc must be called afterwards.
-	Subscribe() (chan IncomingMessage, CancelFunc)
+	Subscribe() (chan dispatcher.IncomingMessage, dispatcher.CancelFunc)
 }
 
 // Peer strips certain methods from peer.Peer.

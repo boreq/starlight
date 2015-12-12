@@ -1,27 +1,16 @@
-package network
+package dispatcher
 
 import (
+	"github.com/boreq/lainnet/network/node"
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/context"
 	"sync"
 )
 
-type CancelFunc func()
-
-// Dispatcher exposes methods which allow to subscribe to messages. Dispatched
-// messages are sent to every subscriber through a channel.
-type Dispatcher interface {
-	// Subscripe returns a channel on which it is possible to receive
-	// incoming messages and a CancelFunc which must be called if the
-	// calling function no longer wishes to receive messages on a channel.
-	Subscribe() (chan IncomingMessage, CancelFunc)
-
-	// Dispatch forwards a message to all channels retrieved using the
-	// subscribe method.
-	Dispatch(Peer, proto.Message)
-}
-
-func NewDispatcher(ctx context.Context) Dispatcher {
+// New creates a new Dispatcher. The provided context is used as a parent
+// context for contexts in all subscriptions so if this context is closed every
+// subscription will be closed as well.
+func New(ctx context.Context) Dispatcher {
 	rw := &dispatcher{
 		ctx: ctx,
 	}
@@ -62,12 +51,12 @@ func (d *dispatcher) Subscribe() (chan IncomingMessage, CancelFunc) {
 	return sub.C, cancel
 }
 
-func (d *dispatcher) Dispatch(p Peer, msg proto.Message) {
+func (d *dispatcher) Dispatch(node node.NodeInfo, msg proto.Message) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
 	incMsg := IncomingMessage{
-		p.Info(),
+		node,
 		msg,
 	}
 

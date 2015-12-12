@@ -2,6 +2,7 @@ package network
 
 import (
 	"errors"
+	"github.com/boreq/lainnet/network/dispatcher"
 	"github.com/boreq/lainnet/network/node"
 	"github.com/boreq/lainnet/network/peer"
 	"github.com/boreq/lainnet/utils"
@@ -19,7 +20,7 @@ func New(ctx context.Context, ident node.Identity, address string) Network {
 	net := &network{
 		ctx:     ctx,
 		iden:    ident,
-		disp:    NewDispatcher(ctx),
+		disp:    dispatcher.New(ctx),
 		address: address,
 	}
 	return net
@@ -30,11 +31,11 @@ type network struct {
 	iden    node.Identity
 	peers   []peer.Peer
 	plock   sync.Mutex
-	disp    Dispatcher
+	disp    dispatcher.Dispatcher
 	address string
 }
 
-func (n *network) Subscribe() (chan IncomingMessage, CancelFunc) {
+func (n *network) Subscribe() (chan dispatcher.IncomingMessage, dispatcher.CancelFunc) {
 	return n.disp.Subscribe()
 }
 
@@ -88,7 +89,7 @@ func (n *network) newConnection(ctx context.Context, conn net.Conn) (peer.Peer, 
 
 	n.peers = append(n.peers, p)
 
-	// Run dispatcher to be able to receive messages from all peers easily.
+	// Run a dispatcher to be able to receive messages from all peers easily.
 	go func() {
 		for {
 			msg, err := p.ReceiveWithContext(n.ctx)
@@ -97,7 +98,7 @@ func (n *network) newConnection(ctx context.Context, conn net.Conn) (peer.Peer, 
 				// TODO: not always return
 				return
 			}
-			n.disp.Dispatch(p, msg)
+			n.disp.Dispatch(p.Info(), msg)
 		}
 	}()
 
