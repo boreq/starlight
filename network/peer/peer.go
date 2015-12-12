@@ -381,8 +381,13 @@ func (p *peer) handshake(ctx context.Context, iden node.Identity) error {
 	// === EXCHANGE CONFIRMHANDSHAKE MESSAGES ===
 	//
 
+	hash, err := crypto.GetCryptoHash(selectedHash)
+	if err != nil {
+		return err
+	}
+
 	// Form ConfirmHandshake message.
-	sig, err := iden.PrivKey.Sign(remoteInit.GetNonce(), selectedHash)
+	sig, err := iden.PrivKey.Sign(remoteInit.GetNonce(), hash)
 	if err != nil {
 		return err
 	}
@@ -413,7 +418,7 @@ func (p *peer) handshake(ctx context.Context, iden node.Identity) error {
 	//
 
 	// Confirm identity.
-	err = remotePub.Validate(localNonce, remoteConfirm.GetSignature(), selectedHash)
+	err = remotePub.Validate(localNonce, remoteConfirm.GetSignature(), hash)
 	if err != nil {
 		return err
 	}
