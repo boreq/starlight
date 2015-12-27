@@ -4,11 +4,13 @@ import (
 	"github.com/boreq/lainnet/network/node"
 	"github.com/boreq/lainnet/utils"
 	"sync"
+	"time"
 )
 
-// NewBuckets creates new buckets initialized with the local node's id.
-func NewBuckets(id node.ID, k int) *buckets {
-	rv := &buckets{
+// NewBuckets creates new buckets initialized with the local node's id. Each
+// bucket holds up to k nodes.
+func NewBuckets(id node.ID, k int) *Buckets {
+	rv := &Buckets{
 		self:    id,
 		buckets: make([]bucket, len(id)*8),
 		k:       k,
@@ -16,15 +18,18 @@ func NewBuckets(id node.ID, k int) *buckets {
 	return rv
 }
 
-type buckets struct {
+// Buckets are used to store members present in a specified channel. They are
+// used to propagate channel related messages.
+type Buckets struct {
 	self    node.ID
 	buckets []bucket
 	k       int
 	lock    sync.Mutex
 }
 
-// Inserts inserts an id into the buckets.
-func (b *buckets) Insert(id node.ID) error {
+// Inserts inserts an id into the buckets. The entry is removed after the
+// specified point in time passes.
+func (b *Buckets) Insert(id node.ID, t time.Time) error {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
@@ -33,27 +38,29 @@ func (b *buckets) Insert(id node.ID) error {
 		return err
 	}
 
-	// If not full and not in the bucket insert, otherwise don't do anything.
+	// Remove old entries from the bucket.
+	b.buckets[i].Cleanup()
+
+	// If the buckets is not full insert, otherwise don't do anything.
 	if b.buckets[i].Len() < b.k || b.buckets[i].Contains(id) {
-		b.buckets[i].Insert(id)
+		b.buckets[i].Insert(id, t)
 	}
 	return nil
 }
 
-// Remove removes an id from the buckets.
-func (b *buckets) Remove(id node.ID) error {
-	b.lock.Lock()
-	defer b.lock.Unlock()
-
-	i, err := b.bucketIndex(id)
-	if err != nil {
-		return err
+// Get picks i random nodes from each bucket and returns all of them. That means
+// that the total number of the returned nodes will be <= len(b.self) * 8 * i.
+func (b *Buckets) Get(i int) []node.ID {
+	var rv []node.ID
+	for j := 0; j < len(b.buckets); j++ {
+		b.buckets[j].Cleanup()
+		nodes := b.buckets[j].Get(i)
+		rv = append(rv, nodes...)
 	}
-	b.buckets[i].Remove(id)
-	return nil
+	return rv
 }
 
-func (b *buckets) bucketIndex(id node.ID) (int, error) {
+func (b *Buckets) bucketIndex(id node.ID) (int, error) {
 	dis, err := node.Distance(b.self, id)
 	if err != nil {
 		return 0, err
