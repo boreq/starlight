@@ -33,6 +33,8 @@ func ZerosLen(a []byte) int {
 	return len(a) * 8
 }
 
+// This error is returned by certain functions such as XOR when the length of
+// the provided byte slices is not equal.
 var SliceLengthErr = errors.New("Length of the slices differs")
 
 // XOR runs a[i] ^ b[i] on every element and returns a new slice with a result.
