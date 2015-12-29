@@ -12,14 +12,14 @@ import (
 func (d *dht) PutPubKey(ctx context.Context, id node.ID, key crypto.PublicKey) error {
 	log.Debugf("PutPubKey %s", id)
 
-	// Prepare message.
+	// Prepare StorePubKey message.
 	keyBytes, err := key.Bytes()
 	if err != nil {
 		return err
 	}
 	msg := &message.StorePubKey{Key: keyBytes}
 
-	// Locate closest nodes.
+	// Locate the closest nodes.
 	nodes, err := d.findNode(ctx, id, false)
 	if err != nil {
 		return err
@@ -42,14 +42,15 @@ func (d *dht) PutPubKey(ctx context.Context, id node.ID, key crypto.PublicKey) e
 			}
 		}
 	}()
+
 	return nil
 }
 
 func (d *dht) GetPubKey(ctx context.Context, id node.ID) (crypto.PublicKey, error) {
 	log.Debugf("GetPubKey %s", id)
 
-	// Try to find the key locally and if not found perform a key lookup
-	// procedure.
+	// Try to find the key locally and if it isn't found perform a key
+	// lookup procedure.
 	key, err := d.getPubKeyLocally(id)
 	if err == nil {
 		log.Debugf("GetPubKey %s had locally", id)
@@ -68,7 +69,7 @@ func (d *dht) getPubKeyLocally(id node.ID) (crypto.PublicKey, error) {
 	}
 
 	// Check the public keys datastore.
-	key, err := d.pubKeys.Get(id)
+	key, err := d.pubKeysStore.Get(id)
 	if err == nil {
 		key, ok := key.(crypto.PublicKey)
 		if !ok {
@@ -141,7 +142,7 @@ func (d *dht) getPubKey(ctx context.Context, id node.ID) (crypto.PublicKey, erro
 		// Store locally before returning in order to cache the data.
 		keyKey, err := key.Hash()
 		if err == nil {
-			d.pubKeys.Store(keyKey, key)
+			d.pubKeysStore.Store(keyKey, key)
 		}
 		return key, nil
 	case <-ctx.Done():
@@ -159,7 +160,7 @@ func (d *dht) handleStorePubKeyMsg(ctx context.Context, sender node.NodeInfo, ms
 		// with stale data.
 		if err == nil && node.CompareId(keyKey, sender.Id) {
 			log.Debugf("Storing public key %x", keyKey)
-			d.pubKeys.Store(keyKey, pubKey)
+			d.pubKeysStore.Store(keyKey, pubKey)
 		}
 	}
 	return nil

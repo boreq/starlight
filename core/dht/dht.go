@@ -2,10 +2,13 @@ package dht
 
 import (
 	"container/list"
+	"crypto"
 	"errors"
+	"github.com/boreq/lainnet/core/dht/channelstore"
 	"github.com/boreq/lainnet/core/dht/datastore"
 	"github.com/boreq/lainnet/core/dht/kbuckets"
 	"github.com/boreq/lainnet/network"
+	"github.com/boreq/lainnet/network/dispatcher"
 	"github.com/boreq/lainnet/network/node"
 	"github.com/boreq/lainnet/protocol/message"
 	"github.com/boreq/lainnet/utils"
@@ -21,27 +24,44 @@ const k = 20
 // System-wide concurrency parameter.
 const a = 3
 
-const signingHash = "SHA256"
+// Hash used for signing messages stored in the DHT (for example StoreChannel
+// message).
+const signingHash = crypto.SHA256
+
+// Stored public keys will be removed after this time passes.
+var pubKeyStoreTimeout = 2 * time.Hour
+
+// Stored channel memberships will be removed/rejected after this time passes
+// since they have been signed.
+var channelStoreTimeout = 5 * time.Minute
 
 var log = utils.GetLogger("dht")
 
 func New(ctx context.Context, net network.Network, ident node.Identity) DHT {
 	rw := &dht{
-		ctx:     ctx,
-		net:     net,
-		rt:      kbuckets.New(ident.Id, k),
-		self:    ident,
-		pubKeys: datastore.New(2 * time.Hour),
+		ctx:          ctx,
+		net:          net,
+		rt:           kbuckets.New(ident.Id, k),
+		self:         ident,
+		disp:         dispatcher.New(ctx),
+		pubKeysStore: datastore.New(pubKeyStoreTimeout),
+		channelStore: channelstore.New(channelStoreTimeout),
 	}
 	return rw
 }
 
 type dht struct {
-	ctx     context.Context
-	net     network.Network
-	rt      kbuckets.RoutingTable
-	self    node.Identity
-	pubKeys *datastore.Datastore
+	ctx          context.Context
+	net          network.Network
+	rt           kbuckets.RoutingTable
+	self         node.Identity
+	disp         dispatcher.Dispatcher
+	pubKeysStore *datastore.Datastore
+	channelStore *channelstore.Channelstore
+}
+
+func (d *dht) Subscribe() (chan dispatcher.IncomingMessage, dispatcher.CancelFunc) {
+	return d.disp.Subscribe()
 }
 
 func (d *dht) Init(nodes []node.NodeInfo) error {
@@ -86,7 +106,7 @@ func (d *dht) Init(nodes []node.NodeInfo) error {
 	// continue in a loop.
 	err := d.bootstrap(d.ctx)
 	if err != nil {
-		return err
+		return err // TODO don't abort I think
 	}
 	go d.runBootstrap(d.ctx, time.Hour)
 
@@ -121,7 +141,7 @@ func (d *dht) bootstrap(ctx context.Context) error {
 	return nil
 }
 
-func (d *dht) handleMessage(ctx context.Context, msg network.IncomingMessage) error {
+func (d *dht) handleMessage(ctx context.Context, msg dispatcher.IncomingMessage) error {
 	d.rt.Update(msg.Sender.Id, msg.Sender.Address)
 
 	switch pMsg := msg.Message.(type) {
@@ -148,7 +168,10 @@ func (d *dht) handleMessage(ctx context.Context, msg network.IncomingMessage) er
 		d.handleFindPubKeyMsg(ctx, msg.Sender, pMsg)
 
 	case *message.StoreChannel:
-		d.handleStoreChannelMsg(ctx, pMsg)
+		d.handleStoreChannelMsg(ctx, msg.Sender, pMsg)
+
+	case *message.FindChannel:
+		d.handleFindChannelMsg(ctx, msg.Sender, pMsg)
 
 	}
 	return nil
