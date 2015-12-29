@@ -3,6 +3,7 @@ package dht
 import (
 	"github.com/boreq/lainnet/crypto"
 	"github.com/boreq/lainnet/network"
+	"github.com/boreq/lainnet/network/dispatcher"
 	"github.com/boreq/lainnet/network/node"
 	"golang.org/x/net/context"
 	"time"
@@ -20,6 +21,11 @@ type DHT interface {
 	// peer with the right id connected it attempts to locate and dial it.
 	Dial(ctx context.Context, id node.ID) (network.Peer, error)
 
+	// Subscribe returns a channel on which it is possible to receive
+	// only validated incoming messages (signatures etc). CancelFunc must be
+	// called afterwards.
+	Subscribe() (chan dispatcher.IncomingMessage, dispatcher.CancelFunc)
+
 	// FindNode attempts to locate a node and return its address.
 	FindNode(ctx context.Context, id node.ID) (node.NodeInfo, error)
 
@@ -29,8 +35,8 @@ type DHT interface {
 	// PutPubKey stores the public key of the specified node.
 	PutPubKey(ctx context.Context, id node.ID, key crypto.PublicKey) error
 
-	//// GetChannel
-	//GetChannel(ctx context.Context, id []byte) ([]node.Id, error)
+	// GetChannel returns a list of nodes which have joined a channel.
+	GetChannel(ctx context.Context, id []byte) ([]node.ID, error)
 
 	// PutChannel stores the information about this node being in the
 	// specifed channel. Other nodes can recover this information to know
