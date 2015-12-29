@@ -1,3 +1,5 @@
+// Package datastore provides a data structure used for storing <key, value>
+// pairs for a certain amount of time.
 package datastore
 
 import (
@@ -27,7 +29,7 @@ type Datastore struct {
 	threshold time.Duration
 }
 
-// Store removes the stale data and stores a new entry.
+// Store inserts a new entry.
 func (d *Datastore) Store(key, data interface{}) error {
 	d.cleanup()
 	sKey := fmt.Sprintf("%x", key)
@@ -35,7 +37,7 @@ func (d *Datastore) Store(key, data interface{}) error {
 	return nil
 }
 
-// Get removes an entry from the datastore. A stale entry can be removed.
+// Get returns an entry from the datastore. A stale entry can be returned.
 func (d *Datastore) Get(key []byte) (interface{}, error) {
 	sKey := fmt.Sprintf("%x", key)
 	item, ok := d.items[sKey]
