@@ -21,6 +21,7 @@ It has these top-level messages:
 	StorePubKey
 	FindPubKey
 	StoreChannel
+	FindChannel
 */
 package message
 
@@ -317,6 +318,22 @@ func (m *StoreChannel) GetTimestamp() int64 {
 func (m *StoreChannel) GetSignature() []byte {
 	if m != nil {
 		return m.Signature
+	}
+	return nil
+}
+
+type FindChannel struct {
+	ChannelId        []byte `protobuf:"bytes,1,req" json:"ChannelId,omitempty"`
+	XXX_unrecognized []byte `json:"-"`
+}
+
+func (m *FindChannel) Reset()         { *m = FindChannel{} }
+func (m *FindChannel) String() string { return proto.CompactTextString(m) }
+func (*FindChannel) ProtoMessage()    {}
+
+func (m *FindChannel) GetChannelId() []byte {
+	if m != nil {
+		return m.ChannelId
 	}
 	return nil
 }

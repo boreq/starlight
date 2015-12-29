@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"github.com/boreq/lainnet/protocol/message"
+	"github.com/boreq/lainnet/utils"
 	"github.com/golang/protobuf/proto"
 )
+
+var log = utils.GetLogger("protocol")
 
 func Encode(msg proto.Message) ([]byte, error) {
 	buf := &bytes.Buffer{}
@@ -67,8 +69,10 @@ func Decode(data []byte) (proto.Message, error) {
 		msg = &message.FindPubKey{}
 	case 12:
 		msg = &message.StoreChannel{}
+	case 13:
+		msg = &message.FindChannel{}
 	default:
-		panic(fmt.Sprintf("decode unknown msg type %d", cmd))
+		log.Debugf("Decode: unknown message type %d", cmd)
 		return nil, errors.New("Unknown message type")
 	}
 	err := proto.Unmarshal(buf.Bytes(), msg)

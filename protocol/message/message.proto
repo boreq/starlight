@@ -60,3 +60,7 @@ message StoreChannel {
     required int64 Timestamp = 3;
     required bytes Signature = 4;
 }
+
+message FindChannel {
+    required bytes ChannelId = 1;
+}
