@@ -237,6 +237,9 @@ func (n *lainnet) handleChannelMessageMsg(msg *message.ChannelMessage, sender no
 	ch.Users.Insert(sender, t)
 }
 
+// msgRegisterHash is a hashing functions applied to the output of
+// channelMessageDataToSign in order to identify the messages stored in the
+// msgregister.
 const msgRegisterHash = crypto.SHA256
 
 // If a channel message has a timestamp further in the future than it will be
@@ -247,6 +250,7 @@ var maxChannelMessageFutureAge = 30 * time.Second
 // then it will be rejected.
 var maxChannelMessageAge = 5 * time.Minute
 
+// maxChannelMessageAge is the max total length of a message sent in a channel.
 var maxChannelMessageLength = 500
 
 func (n *lainnet) validateChannelMessage(ctx context.Context, msg *message.ChannelMessage) error {
@@ -289,6 +293,8 @@ func (n *lainnet) validateChannelMessage(ctx context.Context, msg *message.Chann
 	return key.Validate(data, msg.GetSignature(), dht.SigningHash)
 }
 
+// channelMessageDataToSign produces an output which is used to create
+// a signature for a ChannelMessage.
 func channelMessageDataToSign(msg *message.ChannelMessage) ([]byte, error) {
 	b := &bytes.Buffer{}
 	b.Write(msg.GetChannelId())
