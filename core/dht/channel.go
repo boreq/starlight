@@ -14,7 +14,7 @@ import (
 
 func (d *dht) PutChannel(ctx context.Context, id []byte) error {
 	// Prepare a message.
-	msg, err := createStoreChannelMessage(d.self.PrivKey, d.self.Id, id)
+	msg, err := CreateStoreChannelMessage(d.self.PrivKey, d.self.Id, id)
 	if err != nil {
 		return err
 	}
@@ -83,6 +83,8 @@ func (d *dht) getChannel(ctx context.Context, id []byte) ([]*message.StoreChanne
 		}
 	}
 
+	findNodeDone := make(chan int)
+
 	// Process incoming messages.
 	go func() {
 		c, cancel := d.net.Subscribe()
@@ -107,6 +109,7 @@ func (d *dht) getChannel(ctx context.Context, id []byte) ([]*message.StoreChanne
 				switch pMsg := msg.Message.(type) {
 				case *message.StoreChannel:
 					if bytes.Equal(pMsg.GetChannelId(), id) {
+						log.Debugf("getChannel %x new result", id)
 						results = append(results, pMsg)
 						t.Reset(2 * time.Second)
 						if first {
@@ -115,10 +118,15 @@ func (d *dht) getChannel(ctx context.Context, id []byte) ([]*message.StoreChanne
 						}
 					}
 				}
+			case <-findNodeDone:
+				log.Debugf("getChannel %x findNodeDone", id)
+				t.Reset(2 * time.Second)
 			case <-t.C:
+				log.Debugf("getChannel %x sendResults - t", id)
 				sendResult(results)
 				return
 			case <-ctxTimeout.Done():
+				log.Debugf("getChannel %x sendResults - ctxTimeout", id)
 				sendResult(results)
 				return
 			case <-ctx.Done():
@@ -128,13 +136,19 @@ func (d *dht) getChannel(ctx context.Context, id []byte) ([]*message.StoreChanne
 	}()
 
 	// Run the lookup procedure.
-	msgFactory := func(id node.ID) proto.Message {
-		rv := &message.FindPubKey{
-			Id: id,
+	go func() {
+		msgFactory := func(id node.ID) proto.Message {
+			rv := &message.FindChannel{
+				ChannelId: id,
+			}
+			return rv
 		}
-		return rv
-	}
-	go d.findNodeCustom(ctx, id, msgFactory, false)
+		d.findNodeCustom(ctx, id, msgFactory, false)
+		select {
+		case findNodeDone <- 0:
+		case <-ctx.Done():
+		}
+	}()
 
 	// Await results.
 	select {
@@ -147,6 +161,11 @@ func (d *dht) getChannel(ctx context.Context, id []byte) ([]*message.StoreChanne
 
 // handlePutChannelMsg processes an incoming StoreChannel message.
 func (d *dht) handleStoreChannelMsg(ctx context.Context, sender node.NodeInfo, msg *message.StoreChannel) error {
+	if node.CompareId(msg.GetNodeId(), d.self.Id) {
+		log.Debugf("Ignoring my own store channel message")
+		return errors.New("Received my own message")
+	}
+
 	err := d.validateStoreChannelMessage(ctx, msg)
 	if err != nil {
 		log.Debugf("INVALID channel %x info for %x: %s", msg.GetChannelId(), msg.GetNodeId(), err)
@@ -190,9 +209,9 @@ func (d *dht) handleFindChannelMsg(ctx context.Context, sender node.NodeInfo, ms
 	return nil
 }
 
-// createStoreChannelMessage creates a StoreChannel message which can be sent
+// CreateStoreChannelMessage creates a StoreChannel message which can be sent
 // to other nodes.
-func createStoreChannelMessage(key crypto.PrivateKey, nodeId node.ID, channelId []byte) (*message.StoreChannel, error) {
+func CreateStoreChannelMessage(key crypto.PrivateKey, nodeId node.ID, channelId []byte) (*message.StoreChannel, error) {
 	timestamp := time.Now().UTC().Unix()
 	msg := &message.StoreChannel{
 		ChannelId: channelId,
@@ -204,7 +223,7 @@ func createStoreChannelMessage(key crypto.PrivateKey, nodeId node.ID, channelId 
 	if err != nil {
 		return nil, err
 	}
-	signature, err := key.Sign(msgBytes, signingHash)
+	signature, err := key.Sign(msgBytes, SigningHash)
 	msg.Signature = signature
 	return msg, nil
 }
@@ -243,7 +262,7 @@ func (d *dht) validateStoreChannelMessage(ctx context.Context, msg *message.Stor
 	if err != nil {
 		return err
 	}
-	err = key.Validate(msgBytes, msg.Signature, signingHash)
+	err = key.Validate(msgBytes, msg.Signature, SigningHash)
 	if err != nil {
 		return err
 	}

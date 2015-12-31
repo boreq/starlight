@@ -26,7 +26,7 @@ const a = 3
 
 // Hash used for signing messages stored in the DHT (for example StoreChannel
 // message).
-const signingHash = crypto.SHA256
+const SigningHash = crypto.SHA256
 
 // Stored public keys will be removed after this time passes.
 var pubKeyStoreTimeout = 2 * time.Hour
@@ -172,6 +172,12 @@ func (d *dht) handleMessage(ctx context.Context, msg dispatcher.IncomingMessage)
 
 	case *message.FindChannel:
 		d.handleFindChannelMsg(ctx, msg.Sender, pMsg)
+
+	case *message.PrivateMessage:
+		go d.disp.Dispatch(msg.Sender, pMsg)
+
+	case *message.ChannelMessage:
+		go d.disp.Dispatch(msg.Sender, pMsg)
 
 	}
 	return nil
@@ -413,7 +419,7 @@ func (d *dht) findNodeCustom(ctx context.Context, id node.ID, msgFac messageFact
 				peer, err := d.net.Dial(*entry.Info)
 				if err == nil {
 					counterSent++
-					msg := &message.FindNode{Id: id}
+					msg := msgFac(id)
 					log.Debugf("findNode send to %s", entry.Info.Id)
 					go peer.SendWithContext(ctx, msg)
 				}
