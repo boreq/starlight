@@ -64,12 +64,14 @@ func Decode(data []byte) (proto.Message, error) {
 	case 9:
 		msg = &message.PrivateMessage{}
 	case 10:
-		msg = &message.StorePubKey{}
+		msg = &message.ChannelMessage{}
 	case 11:
-		msg = &message.FindPubKey{}
+		msg = &message.StorePubKey{}
 	case 12:
-		msg = &message.StoreChannel{}
+		msg = &message.FindPubKey{}
 	case 13:
+		msg = &message.StoreChannel{}
+	case 14:
 		msg = &message.FindChannel{}
 	default:
 		log.Debugf("Decode: unknown message type %d", cmd)

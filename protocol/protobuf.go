@@ -17,10 +17,11 @@ var cmdMap = map[reflect.Type]uint32{
 	reflect.TypeOf(message.FindNode{}):         7,
 	reflect.TypeOf(message.Nodes{}):            8,
 	reflect.TypeOf(message.PrivateMessage{}):   9,
-	reflect.TypeOf(message.StorePubKey{}):      10,
-	reflect.TypeOf(message.FindPubKey{}):       11,
-	reflect.TypeOf(message.StoreChannel{}):     12,
-	reflect.TypeOf(message.FindChannel{}):      13,
+	reflect.TypeOf(message.ChannelMessage{}):   10,
+	reflect.TypeOf(message.StorePubKey{}):      11,
+	reflect.TypeOf(message.FindPubKey{}):       12,
+	reflect.TypeOf(message.StoreChannel{}):     13,
+	reflect.TypeOf(message.FindChannel{}):      14,
 }
 
 // cmdEncode returns a value used in the protocol to indicate the type of a

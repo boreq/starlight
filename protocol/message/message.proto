@@ -46,6 +46,14 @@ message PrivateMessage {
     required string Text = 1;
 }
 
+message ChannelMessage {
+    required bytes ChannelId = 1;
+    required bytes NodeId = 2;
+    required int64 Timestamp = 3;
+    required string Text = 4;
+    required bytes Signature = 5;
+}
+
 message StorePubKey {
     required bytes Key = 1;
 }
