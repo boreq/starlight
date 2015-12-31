@@ -9,7 +9,7 @@ func TestBucketsGetCleanup(t *testing.T) {
 	self := []byte{0}
 	t1 := time.Now().UTC().Add(1 * time.Second)
 
-	b := NewBuckets(self, 10)
+	b := newBuckets(self, 10)
 	var i byte
 	for i = 1; i < 10; i++ {
 		b.Insert([]byte{i}, t1)
@@ -27,7 +27,7 @@ func TestBucketsGet(t *testing.T) {
 	self := []byte{0}
 	t1 := time.Now().UTC().Add(1 * time.Second)
 
-	b := NewBuckets(self, 10)
+	b := newBuckets(self, 10)
 	var i byte
 	for i = 1; i < 10; i++ {
 		b.Insert([]byte{i}, t1)

@@ -7,9 +7,9 @@ import (
 	"time"
 )
 
-// NewBuckets creates new buckets initialized with the local node's id. Each
+// newBuckets creates new buckets initialized with the local node's id. Each
 // bucket holds up to k nodes.
-func NewBuckets(id node.ID, k int) *Buckets {
+func newBuckets(id node.ID, k int) *Buckets {
 	rv := &Buckets{
 		self:    id,
 		buckets: make([]bucket, len(id)*8),
