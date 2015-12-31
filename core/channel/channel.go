@@ -15,7 +15,7 @@ func NewChannel(ctx context.Context, id node.ID, name string) *Channel {
 	rv := &Channel{
 		Name:   name,
 		Id:     CreateId(name),
-		users:  NewBuckets(id, k),
+		Users:  NewBuckets(id, k),
 		Ctx:    ctx,
 		cancel: cancel,
 	}
@@ -25,7 +25,7 @@ func NewChannel(ctx context.Context, id node.ID, name string) *Channel {
 type Channel struct {
 	Name   string
 	Id     []byte
-	users  *buckets
+	Users  *Buckets
 	Ctx    context.Context
 	cancel context.CancelFunc
 }
