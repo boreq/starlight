@@ -25,15 +25,11 @@ const k = 20
 const a = 3
 
 // Hash used for signing messages stored in the DHT (for example StoreChannel
-// message).
+// messages).
 const SigningHash = crypto.SHA256
 
 // Stored public keys will be removed after this time passes.
-var pubKeyStoreTimeout = 2 * time.Hour
-
-// Stored channel memberships will be removed/rejected after this time passes
-// since they have been signed.
-var channelStoreTimeout = 5 * time.Minute
+const pubKeyStoreTimeout = 2 * time.Hour
 
 var log = utils.GetLogger("dht")
 
@@ -45,7 +41,7 @@ func New(ctx context.Context, net network.Network, ident node.Identity) DHT {
 		self:         ident,
 		disp:         dispatcher.New(ctx),
 		pubKeysStore: datastore.New(pubKeyStoreTimeout),
-		channelStore: channelstore.New(channelStoreTimeout),
+		channelStore: channelstore.New(maxStoreChannelMessageAge),
 	}
 	return rw
 }
@@ -247,19 +243,19 @@ func (d *dht) Ping(ctx context.Context, id node.ID) (*time.Duration, error) {
 	}
 }
 
-type NodeData struct {
+type nodeData struct {
 	Info      *node.NodeInfo
 	Distance  []byte
 	Processed bool
 }
 
-func AddEntryToList(l *list.List, id node.ID, nd *node.NodeInfo) {
+func addEntryToList(l *list.List, id node.ID, nd *node.NodeInfo) {
 	distance, err := distance(id, nd.Id)
 	if err != nil {
 		return
 	}
 
-	newEntry := &NodeData{
+	newEntry := &nodeData{
 		&node.NodeInfo{nd.Id, nd.Address},
 		distance,
 		false,
@@ -267,7 +263,7 @@ func AddEntryToList(l *list.List, id node.ID, nd *node.NodeInfo) {
 
 	var elem *list.Element = nil
 	for elem = l.Front(); elem != nil; elem = elem.Next() {
-		entry := elem.Value.(*NodeData)
+		entry := elem.Value.(*nodeData)
 		// If new one is closer insert it before this element.
 		res, _ := utils.Compare(distance, entry.Distance)
 		if res > 0 {
@@ -346,9 +342,9 @@ func (d *dht) findNodeCustom(ctx context.Context, id node.ID, msgFac messageFact
 		return nodeDataListToSlice(results), errors.New("Could not locate the node")
 	}
 	for _, nd := range nodes {
-		AddEntryToList(results, id, &nd)
+		addEntryToList(results, id, &nd)
 	}
-	if elem := results.Front(); elem != nil && node.CompareId(elem.Value.(*NodeData).Info.Id, id) {
+	if elem := results.Front(); elem != nil && node.CompareId(elem.Value.(*nodeData).Info.Id, id) {
 		log.Debug("findNode found in buckets")
 		return nodeDataListToSlice(results), nil
 	}
@@ -366,7 +362,7 @@ func (d *dht) findNodeCustom(ctx context.Context, id node.ID, msgFac messageFact
 						// Add to the list.
 						ndInfo := &node.NodeInfo{nd.GetId(), nd.GetAddress()}
 						if !node.CompareId(ndInfo.Id, d.self.Id) {
-							AddEntryToList(results, id, ndInfo)
+							addEntryToList(results, id, ndInfo)
 							log.Debugf("findNode new node from response %s", ndInfo.Id)
 							// If this is the right node return the results already.
 							// TODO fix this
@@ -412,7 +408,7 @@ func (d *dht) findNodeCustom(ctx context.Context, id node.ID, msgFac messageFact
 			}
 
 			// Send new messages.
-			entry := elem.Value.(*NodeData)
+			entry := elem.Value.(*nodeData)
 			if !entry.Processed {
 				entry.Processed = true
 				log.Debugf("findNode dial %s", entry.Info.Id)
@@ -442,7 +438,7 @@ func nodeDataListToSlice(l *list.List) []node.NodeInfo {
 	rv := make([]node.NodeInfo, l.Len())
 	i := 0
 	for elem := l.Front(); elem != nil; elem = elem.Next() {
-		entry := elem.Value.(*NodeData)
+		entry := elem.Value.(*nodeData)
 		rv[i] = *entry.Info
 		i++
 	}

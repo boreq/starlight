@@ -1,3 +1,6 @@
+// Package dht implements a Kademlia based DHT. The DHT is used for storing
+// public keys of the nodes participating in the network, channel memberships
+// and routing.
 package dht
 
 import (

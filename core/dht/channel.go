@@ -228,9 +228,13 @@ func CreateStoreChannelMessage(key crypto.PrivateKey, nodeId node.ID, channelId 
 	return msg, nil
 }
 
-// If a message is further in the future than putChannelFutureThreshold then
-// it is rejected.
-var putChannelFutureThreshold = 30 * time.Second
+// If a message is further in the future than maxStoreChannelMessageFutureAge
+// then it is rejected.
+const maxStoreChannelMessageFutureAge = 30 * time.Second
+
+// Stored channel memberships will be removed/rejected after this time passes
+// since they have been signed.
+const maxStoreChannelMessageAge = 5 * time.Minute
 
 // validateStoreChannelMessage returns an error if a StoreChannel message is
 // invalid and should not be processed (stored).
@@ -244,8 +248,11 @@ func (d *dht) validateStoreChannelMessage(ctx context.Context, msg *message.Stor
 	}
 
 	t := time.Unix(msg.GetTimestamp(), 0)
-	if t.After(time.Now().UTC().Add(putChannelFutureThreshold)) {
+	if t.After(time.Now().UTC().Add(maxStoreChannelMessageFutureAge)) {
 		return errors.New("Timestamp is too far in the future")
+	}
+	if t.Before(time.Now().UTC().Add(-maxStoreChannelMessageAge)) {
+		return errors.New("Message is too old")
 	}
 
 	// Recreate bytes which were signed - encoded message without the signature.
