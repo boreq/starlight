@@ -23,6 +23,7 @@ func NewLainnet(ctx context.Context, ident node.Identity, config *config.Config)
 		ident:       ident,
 		net:         net,
 		msgRegister: msgregister.New(),
+		disp:        dispatcher.New(ctx),
 		dht:         dht.New(ctx, net, ident),
 		ctx:         ctx,
 	}
@@ -36,6 +37,7 @@ type lainnet struct {
 	channels      []*channel.Channel
 	channelsMutex sync.Mutex
 	msgRegister   *msgregister.Register
+	disp          dispatcher.Dispatcher
 	dht           dht.DHT
 	ctx           context.Context
 }
@@ -75,6 +77,10 @@ func (n *lainnet) Start() error {
 	return nil
 }
 
+func (n *lainnet) Subscribe() (chan dispatcher.IncomingMessage, dispatcher.CancelFunc) {
+	return n.disp.Subscribe()
+}
+
 func (n *lainnet) SendMessage(ctx context.Context, id node.ID, text string) error {
 	p, err := n.dht.Dial(ctx, id)
 	if err != nil {
@@ -84,18 +90,15 @@ func (n *lainnet) SendMessage(ctx context.Context, id node.ID, text string) erro
 	return p.Send(msg)
 }
 
-// Concurency parameter used when resending channel related messages.
-const channelA = 3
-
 // handleMessage handles the incoming messages.
 func (n *lainnet) handleMessage(msg dispatcher.IncomingMessage) error {
 	switch pMsg := msg.Message.(type) {
 
 	case *message.PrivateMessage:
-		log.Print(pMsg)
+		n.disp.Dispatch(msg.Sender, pMsg)
 
 	case *message.ChannelMessage:
-		n.handleChannelMessageMsg(pMsg, msg.Sender.Id)
+		n.handleChannelMessageMsg(pMsg, msg.Sender)
 
 	case *message.FindChannel:
 		n.handleFindChannelMsg(pMsg, msg.Sender.Id)

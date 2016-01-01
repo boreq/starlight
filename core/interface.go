@@ -2,6 +2,7 @@ package core
 
 import (
 	"github.com/boreq/lainnet/core/dht"
+	"github.com/boreq/lainnet/network/dispatcher"
 	"github.com/boreq/lainnet/network/node"
 	"golang.org/x/net/context"
 )
@@ -16,6 +17,13 @@ type Lainnet interface {
 
 	// Dht returns the used DHT instance.
 	Dht() dht.DHT
+
+	// Subscribe returns a channel on which it is possible to receive
+	// incoming PrivateMessage and ChannelMessage messages. CancelFunc must
+	// be called afterwards. ChannelMessage will have a ChannelId replaced
+	// with a string containing the actual name of the channel which was
+	// provided to the the JoinChannel method.
+	Subscribe() (chan dispatcher.IncomingMessage, dispatcher.CancelFunc)
 
 	// SendMessage sends a private text message to a node.
 	SendMessage(ctx context.Context, to node.ID, text string) error

@@ -18,7 +18,11 @@ var AlreadyInChannelError = errors.New("Already joined this channel")
 var NotInChannelError = errors.New("Not in the channel")
 
 // channelBootstrapInterval specifies how often bootstrapChannel is run.
-var channelBootstrapInterval = 5 * time.Minute
+const channelBootstrapInterval = 5 * time.Minute
+
+// channelA is a concurency parameter used when resending channel related
+// messages to other nodes.
+const channelA = 3
 
 func (n *lainnet) JoinChannel(name string) error {
 	n.channelsMutex.Lock()
@@ -122,6 +126,8 @@ func (n *lainnet) runBootstrapChannel(ctx context.Context, interval time.Duratio
 	}
 }
 
+// userTimeout specifies the time after which a user is removed from the channel
+// buckets.
 var userTimeout = 5 * time.Minute
 
 // bootstrapChannel performs required housekeeping procedures related to being
@@ -150,19 +156,23 @@ func (n *lainnet) bootstrapChannel(ctx context.Context, ch *channel.Channel) {
 	}
 }
 
+// handleFindChannelMsg is only responsible for additionally sending a store
+// channel message of the local node. Stored messages are returned on the DHT
+// level.
 func (n *lainnet) handleFindChannelMsg(msg *message.FindChannel, sender node.ID) {
 	n.channelsMutex.Lock()
 	defer n.channelsMutex.Unlock()
 
 	if ch := n.getChannel(msg.GetChannelId()); ch != nil {
+		// Create my own store channel message.
 		msg, err := dht.CreateStoreChannelMessage(n.ident.PrivKey, n.ident.Id, ch.Id)
 		if err != nil {
 			return
 		}
 
+		// Send my own store channel message.
 		ctx, cancel := context.WithTimeout(n.ctx, 60*time.Second)
 		defer cancel()
-
 		peer, err := n.dht.Dial(ctx, sender)
 		if err == nil {
 			peer.SendWithContext(ctx, msg)
@@ -170,6 +180,8 @@ func (n *lainnet) handleFindChannelMsg(msg *message.FindChannel, sender node.ID)
 	}
 }
 
+// handleStoreChannelMsg is only responsible for forwarding of the message to
+// other channel members as the message itself is stored on the DHT level.
 func (n *lainnet) handleStoreChannelMsg(msg *message.StoreChannel, sender node.ID) {
 	n.channelsMutex.Lock()
 	defer n.channelsMutex.Unlock()
@@ -185,13 +197,13 @@ func (n *lainnet) handleStoreChannelMsg(msg *message.StoreChannel, sender node.I
 			}
 		}()
 
-		// Insert into buckets.
+		// Insert the original sender into the channel buckets.
 		t := time.Now().UTC().Add(userTimeout)
 		ch.Users.Insert(msg.GetNodeId(), t)
 	}
 }
 
-func (n *lainnet) handleChannelMessageMsg(msg *message.ChannelMessage, sender node.ID) {
+func (n *lainnet) handleChannelMessageMsg(msg *message.ChannelMessage, sender node.NodeInfo) {
 	log.Print(msg)
 
 	// Abort if we are not in the channel.
@@ -210,7 +222,8 @@ func (n *lainnet) handleChannelMessageMsg(msg *message.ChannelMessage, sender no
 		return
 	}
 
-	// Try to insert into the register, abort if failed.
+	// Try to insert into the register, abort if failed - it has been
+	// received already.
 	t := time.Unix(msg.GetTimestamp(), 0).Add(2 * maxChannelMessageAge)
 	data, err := channelMessageDataToSign(msg)
 	if err != nil {
@@ -221,6 +234,16 @@ func (n *lainnet) handleChannelMessageMsg(msg *message.ChannelMessage, sender no
 	if err != nil {
 		return
 	}
+
+	// Dispatch.
+	dMsg := &message.ChannelMessage{
+		ChannelId: []byte(ch.Name),
+		NodeId:    msg.NodeId,
+		Timestamp: msg.Timestamp,
+		Text:      msg.Text,
+		Signature: msg.Signature,
+	}
+	n.disp.Dispatch(sender, dMsg)
 
 	// Forward the message to other channel members.
 	for _, id := range ch.Users.Get(channelA) {
@@ -234,7 +257,7 @@ func (n *lainnet) handleChannelMessageMsg(msg *message.ChannelMessage, sender no
 
 	// Insert the sender into buckets.
 	t = time.Now().UTC().Add(userTimeout)
-	ch.Users.Insert(sender, t)
+	ch.Users.Insert(sender.Id, t)
 }
 
 // msgRegisterHash is a hashing functions applied to the output of
