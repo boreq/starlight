@@ -214,6 +214,11 @@ func (n *lainnet) handleChannelMessageMsg(msg *message.ChannelMessage, sender no
 		return
 	}
 
+	// Ignore my own channel messages.
+	if node.CompareId(msg.GetNodeId(), n.ident.Id) {
+		return
+	}
+
 	// Validate.
 	ctx, cancel := context.WithTimeout(context.TODO(), 30*time.Second)
 	defer cancel()
