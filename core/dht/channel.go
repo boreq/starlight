@@ -2,6 +2,7 @@ package dht
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"github.com/boreq/lainnet/core/channel"
 	"github.com/boreq/lainnet/crypto"
@@ -217,14 +218,15 @@ func CreateStoreChannelMessage(key crypto.PrivateKey, nodeId node.ID, channelId 
 		ChannelId: channelId,
 		NodeId:    nodeId,
 		Timestamp: &timestamp,
-		Signature: []byte{},
 	}
-	msgBytes, err := proto.Marshal(msg)
+	msgBytes, err := storeChannelMessageDataToSign(msg)
 	if err != nil {
 		return nil, err
 	}
-	signature, err := key.Sign(msgBytes, SigningHash)
-	msg.Signature = signature
+	msg.Signature, err = key.Sign(msgBytes, SigningHash)
+	if err != nil {
+		return nil, err
+	}
 	return msg, nil
 }
 
@@ -255,16 +257,11 @@ func (d *dht) validateStoreChannelMessage(ctx context.Context, msg *message.Stor
 		return errors.New("Message is too old")
 	}
 
-	// Recreate bytes which were signed - encoded message without the signature.
-	var tmp *message.StoreChannel = &message.StoreChannel{}
-	*tmp = *msg
-	tmp.Signature = []byte{}
-	msgBytes, err := proto.Marshal(tmp)
+	// Confirm the signature.
+	msgBytes, err := storeChannelMessageDataToSign(msg)
 	if err != nil {
 		return err
 	}
-
-	// Confirm the signature.
 	key, err := d.GetPubKey(ctx, msg.GetNodeId())
 	if err != nil {
 		return err
@@ -275,4 +272,16 @@ func (d *dht) validateStoreChannelMessage(ctx context.Context, msg *message.Stor
 	}
 
 	return nil
+}
+
+// storeChannelMessageDataToSign produces an output which is used to create
+// a signature for a StoreChannel message.
+func storeChannelMessageDataToSign(msg *message.StoreChannel) ([]byte, error) {
+	b := &bytes.Buffer{}
+	b.Write(msg.GetChannelId())
+	b.Write(msg.GetNodeId())
+	if err := binary.Write(b, binary.BigEndian, msg.GetTimestamp()); err != nil {
+		return nil, err
+	}
+	return b.Bytes(), nil
 }
