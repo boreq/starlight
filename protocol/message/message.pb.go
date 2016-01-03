@@ -236,13 +236,30 @@ func (m *Nodes_NodeInfo) GetAddress() string {
 }
 
 type PrivateMessage struct {
-	Text             *string `protobuf:"bytes,1,req" json:"Text,omitempty"`
+	TargetId         []byte  `protobuf:"bytes,1,req" json:"TargetId,omitempty"`
+	NodeId           []byte  `protobuf:"bytes,2,req" json:"NodeId,omitempty"`
+	Text             *string `protobuf:"bytes,3,req" json:"Text,omitempty"`
+	Nonce            *uint64 `protobuf:"fixed64,4,req" json:"Nonce,omitempty"`
 	XXX_unrecognized []byte  `json:"-"`
 }
 
 func (m *PrivateMessage) Reset()         { *m = PrivateMessage{} }
 func (m *PrivateMessage) String() string { return proto.CompactTextString(m) }
 func (*PrivateMessage) ProtoMessage()    {}
+
+func (m *PrivateMessage) GetTargetId() []byte {
+	if m != nil {
+		return m.TargetId
+	}
+	return nil
+}
+
+func (m *PrivateMessage) GetNodeId() []byte {
+	if m != nil {
+		return m.NodeId
+	}
+	return nil
+}
 
 func (m *PrivateMessage) GetText() string {
 	if m != nil && m.Text != nil {
@@ -251,12 +268,20 @@ func (m *PrivateMessage) GetText() string {
 	return ""
 }
 
+func (m *PrivateMessage) GetNonce() uint64 {
+	if m != nil && m.Nonce != nil {
+		return *m.Nonce
+	}
+	return 0
+}
+
 type ChannelMessage struct {
 	ChannelId        []byte  `protobuf:"bytes,1,req" json:"ChannelId,omitempty"`
 	NodeId           []byte  `protobuf:"bytes,2,req" json:"NodeId,omitempty"`
 	Timestamp        *int64  `protobuf:"varint,3,req" json:"Timestamp,omitempty"`
 	Text             *string `protobuf:"bytes,4,req" json:"Text,omitempty"`
-	Signature        []byte  `protobuf:"bytes,5,req" json:"Signature,omitempty"`
+	Nonce            *uint64 `protobuf:"fixed64,5,req" json:"Nonce,omitempty"`
+	Signature        []byte  `protobuf:"bytes,6,req" json:"Signature,omitempty"`
 	XXX_unrecognized []byte  `json:"-"`
 }
 
@@ -290,6 +315,13 @@ func (m *ChannelMessage) GetText() string {
 		return *m.Text
 	}
 	return ""
+}
+
+func (m *ChannelMessage) GetNonce() uint64 {
+	if m != nil && m.Nonce != nil {
+		return *m.Nonce
+	}
+	return 0
 }
 
 func (m *ChannelMessage) GetSignature() []byte {

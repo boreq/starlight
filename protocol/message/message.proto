@@ -43,7 +43,10 @@ message Nodes {
 }
 
 message PrivateMessage {
-    required string Text = 1;
+    required bytes TargetId = 1;
+    required bytes NodeId = 2;
+    required string Text = 3;
+    required fixed64 Nonce = 4;
 }
 
 message ChannelMessage {
@@ -51,7 +54,8 @@ message ChannelMessage {
     required bytes NodeId = 2;
     required int64 Timestamp = 3;
     required string Text = 4;
-    required bytes Signature = 5;
+    required fixed64 Nonce = 5;
+    required bytes Signature = 6;
 }
 
 message StorePubKey {
