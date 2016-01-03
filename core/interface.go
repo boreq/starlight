@@ -31,11 +31,14 @@ type Lainnet interface {
 	// SendChannelMessage sends a text message to a specified channel.
 	SendChannelMessage(ctx context.Context, channel string, text string) error
 
-	// JoinChannel joins a channel. That means that the local node, declares
+	// JoinChannel joins a channel. That means that the local node declares
 	// the channel membership in the DHT and starts accepting and relying
 	// the messages sent in that channel.
 	JoinChannel(name string) error
 
 	// PartChannel parts a channel.
 	PartChannel(name string) error
+
+	// ListChannels returns a list of currently joined channels.
+	ListChannels() []string
 }

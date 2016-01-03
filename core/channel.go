@@ -54,6 +54,17 @@ func (n *lainnet) PartChannel(name string) error {
 	return NotInChannelError
 }
 
+func (n *lainnet) ListChannels() []string {
+	n.channelsMutex.Lock()
+	defer n.channelsMutex.Unlock()
+
+	var rv []string
+	for _, ch := range n.channels {
+		rv = append(rv, ch.Name)
+	}
+	return rv
+}
+
 func (n *lainnet) SendChannelMessage(ctx context.Context, channelName string, text string) error {
 	// Are we even in the channel?
 	channelId := channel.CreateId(channelName)
