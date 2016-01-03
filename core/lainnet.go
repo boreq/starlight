@@ -86,8 +86,11 @@ func (n *lainnet) SendMessage(ctx context.Context, id node.ID, text string) erro
 	if err != nil {
 		return err
 	}
-	msg := &message.PrivateMessage{Text: &text}
-	return p.Send(msg)
+	msg, err := n.createPrivateMessage(id, text)
+	if err != nil {
+		return err
+	}
+	return p.SendWithContext(ctx, msg)
 }
 
 // handleMessage handles the incoming messages.
@@ -95,7 +98,7 @@ func (n *lainnet) handleMessage(msg dispatcher.IncomingMessage) error {
 	switch pMsg := msg.Message.(type) {
 
 	case *message.PrivateMessage:
-		n.disp.Dispatch(msg.Sender, pMsg)
+		n.handlePrivateMessageMsg(pMsg, msg.Sender)
 
 	case *message.ChannelMessage:
 		n.handleChannelMessageMsg(pMsg, msg.Sender)

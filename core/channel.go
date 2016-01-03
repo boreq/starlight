@@ -10,7 +10,9 @@ import (
 	lcrypto "github.com/boreq/lainnet/crypto"
 	"github.com/boreq/lainnet/network/node"
 	"github.com/boreq/lainnet/protocol/message"
+	"github.com/boreq/lainnet/utils"
 	"golang.org/x/net/context"
+	"math"
 	"time"
 )
 
@@ -74,20 +76,7 @@ func (n *lainnet) SendChannelMessage(ctx context.Context, channelName string, te
 	}
 
 	// Create the message.
-	timestamp := time.Now().UTC().Unix()
-	msg := &message.ChannelMessage{
-		ChannelId: channelId,
-		NodeId:    n.ident.Id,
-		Timestamp: &timestamp,
-		Text:      &text,
-	}
-
-	// Sign the message.
-	data, err := channelMessageDataToSign(msg)
-	if err != nil {
-		return err
-	}
-	msg.Signature, err = n.ident.PrivKey.Sign(data, dht.SigningHash)
+	msg, err := n.createChannelMessage(channelId, text)
 	if err != nil {
 		return err
 	}
@@ -101,6 +90,60 @@ func (n *lainnet) SendChannelMessage(ctx context.Context, channelName string, te
 	}
 
 	return nil
+}
+
+func (n *lainnet) createChannelMessage(channelId []byte, text string) (*message.ChannelMessage, error) {
+	// Create the message.
+	var nonce uint64
+	timestamp := time.Now().UTC().Unix()
+	msg := &message.ChannelMessage{
+		ChannelId: channelId,
+		NodeId:    n.ident.Id,
+		Timestamp: &timestamp,
+		Text:      &text,
+		Nonce:     &nonce,
+	}
+
+	// Solve the puzzle.
+	data, err := channelMessageToBytes(msg)
+	if err != nil {
+		return nil, err
+	}
+	err = solveCryptoPuzzle(&nonce, data, channelMessageCryptoPuzzleDifficulty)
+	if err != nil {
+		return nil, err
+	}
+
+	// Sign the message.
+	msg.Signature, err = n.ident.PrivKey.Sign(data, dht.SigningHash)
+	if err != nil {
+		return nil, err
+	}
+
+	return msg, nil
+}
+
+func (n *lainnet) createPrivateMessage(target node.ID, text string) (*message.PrivateMessage, error) {
+	// Create the message.
+	var nonce uint64
+	msg := &message.PrivateMessage{
+		TargetId: target,
+		NodeId:   n.ident.Id,
+		Text:     &text,
+		Nonce:    &nonce,
+	}
+
+	// Solve the puzzle.
+	data, err := privateMessageToBytes(msg)
+	if err != nil {
+		return nil, err
+	}
+	err = solveCryptoPuzzle(&nonce, data, privateMessageCryptoPuzzleDifficulty)
+	if err != nil {
+		return nil, err
+	}
+
+	return msg, nil
 }
 
 // inChannel returns true if the local node is already in the channel.
@@ -241,7 +284,7 @@ func (n *lainnet) handleChannelMessageMsg(msg *message.ChannelMessage, sender no
 	// Try to insert into the register, abort if failed - it has been
 	// received already.
 	t := time.Unix(msg.GetTimestamp(), 0).Add(2 * maxChannelMessageAge)
-	data, err := channelMessageDataToSign(msg)
+	data, err := channelMessageToBytes(msg)
 	if err != nil {
 		return
 	}
@@ -276,8 +319,19 @@ func (n *lainnet) handleChannelMessageMsg(msg *message.ChannelMessage, sender no
 	ch.Users.Insert(sender.Id, t)
 }
 
+func (n *lainnet) handlePrivateMessageMsg(msg *message.PrivateMessage, sender node.NodeInfo) {
+	// Validate.
+	err := n.validatePrivateMessage(msg, sender.Id)
+	if err != nil {
+		return
+	}
+
+	// Dispatch.
+	n.disp.Dispatch(sender, msg)
+}
+
 // msgRegisterHash is a hashing functions applied to the output of
-// channelMessageDataToSign in order to identify the messages stored in the
+// channelMessageToBytes in order to identify the messages stored in the
 // msgregister.
 const msgRegisterHash = crypto.SHA256
 
@@ -318,12 +372,19 @@ func (n *lainnet) validateChannelMessage(ctx context.Context, msg *message.Chann
 		return errors.New("Message is too long")
 	}
 
-	// Signature.
-	data, err := channelMessageDataToSign(msg)
+	// Nonce and signature.
+	data, err := channelMessageToBytes(msg)
 	if err != nil {
 		return err
 	}
 
+	// Nonce.
+	err = validateCryptoPuzzle(msg.GetNonce(), data, channelMessageCryptoPuzzleDifficulty)
+	if err != nil {
+		return err
+	}
+
+	// Signature.
 	key, err := n.dht.GetPubKey(ctx, msg.GetNodeId())
 	if err != nil {
 		return err
@@ -332,9 +393,34 @@ func (n *lainnet) validateChannelMessage(ctx context.Context, msg *message.Chann
 	return key.Validate(data, msg.GetSignature(), dht.SigningHash)
 }
 
-// channelMessageDataToSign produces an output which is used to create
-// a signature for a ChannelMessage.
-func channelMessageDataToSign(msg *message.ChannelMessage) ([]byte, error) {
+func (n *lainnet) validatePrivateMessage(msg *message.PrivateMessage, sender node.ID) error {
+	// IDs.
+	if !node.CompareId(n.ident.Id, msg.GetTargetId()) {
+		return errors.New("Invalid target id")
+	}
+
+	if !node.CompareId(sender, msg.GetNodeId()) {
+		return errors.New("Invalid node id")
+	}
+
+	// Nonce.
+	data, err := privateMessageToBytes(msg)
+	if err != nil {
+		return err
+	}
+
+	err = validateCryptoPuzzle(msg.GetNonce(), data, privateMessageCryptoPuzzleDifficulty)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// channelMessageToBytes produces an output which is used to create
+// a signature for a ChannelMessage. This output is also used to calculate
+// a crypto puzzle hash after appending a nonce to it.
+func channelMessageToBytes(msg *message.ChannelMessage) ([]byte, error) {
 	b := &bytes.Buffer{}
 	b.Write(msg.GetChannelId())
 	b.Write(msg.GetNodeId())
@@ -343,4 +429,65 @@ func channelMessageDataToSign(msg *message.ChannelMessage) ([]byte, error) {
 	}
 	b.WriteString(msg.GetText())
 	return b.Bytes(), nil
+}
+
+// privateMessageToBytes produces an output which is used to create
+// a signature for a ChannelMessage. This output is also used to calculate
+// a crypto puzzle hash after appending a nonce to it.
+func privateMessageToBytes(msg *message.PrivateMessage) ([]byte, error) {
+	b := &bytes.Buffer{}
+	b.Write(msg.GetTargetId())
+	b.Write(msg.GetNodeId())
+	b.WriteString(msg.GetText())
+	return b.Bytes(), nil
+}
+
+const channelMessageCryptoPuzzleDifficulty = 5
+const privateMessageCryptoPuzzleDifficulty = 5
+
+// cryptoPuzzleHash is a hashing functions applied to the output of
+// channelMessageToBytes when solving the crypto puzzle for channel messages
+// and private messages.
+const cryptoPuzzleHash = crypto.SHA256
+
+func validateCryptoPuzzle(nonce uint64, data []byte, difficulty int) error {
+	hash := cryptoPuzzleHash.New()
+	var sum []byte = make([]byte, 0, hash.Size())
+	var bs []byte = make([]byte, 8)
+	hash.Write(data)
+	binary.BigEndian.PutUint64(bs, nonce)
+	hash.Write(bs)
+	sum = hash.Sum(sum)
+	numBits := utils.ZerosLen(sum)
+	if numBits >= difficulty {
+		return nil
+	}
+	return errors.New("Invalid puzzle")
+}
+
+func solveCryptoPuzzle(nonce *uint64, data []byte, difficulty int) error {
+	var solved bool
+	hash := cryptoPuzzleHash.New()
+	var sum []byte = make([]byte, 0, hash.Size())
+	var bs []byte = make([]byte, 8)
+
+	// Try to solve the puzzle.
+	for *nonce = 0; *nonce <= math.MaxUint64; *nonce++ {
+		hash.Reset()
+		hash.Write(data)
+		binary.BigEndian.PutUint64(bs, *nonce)
+		hash.Write(bs)
+		sum = hash.Sum(sum[:0])
+		numBits := utils.ZerosLen(sum)
+		if numBits >= difficulty {
+			solved = true
+			break
+		}
+	}
+
+	// Make sure that it was solved correctly and the loop didn't simply end.
+	if !solved {
+		return errors.New("The crypto puzzle could not be solved for this message")
+	}
+	return nil
 }
