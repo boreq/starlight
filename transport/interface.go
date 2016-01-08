@@ -1,5 +1,5 @@
 // Package transport defines encoder and decoder interfaces used to send
-// bariable length data chunks via a stream connection.
+// variable length data chunks via a stream connection.
 package transport
 
 // Encoder sends data packets to the underlying writer.

@@ -1,11 +1,10 @@
 // Package secure implements a secure decoder and encoder. Data is sent
-// encrypted and with a HMAC confirming its integrity.
+// encrypted and with a HMAC confirming its integrity. The secure encoder uses
+// the basic encoder to encapsulate the data.
 //
-// Structure of the sent data:
-//     LEN      TYPE      DESCRIPTION
-//     4        uint32    Size of the payload.
-//     ?        []byte    Payload HMAC, length depends on the hash type.
-//     size-?   []byte    Encrypted payload, length: size - HMAC length.
+// Structure of the data sent in the payload field of the basic encoder:
+//      ?        []byte    Payload HMAC, length depends on the hash type.
+//      size-?   []byte    Encrypted payload, length: size - HMAC length.
 package secure
 
 import (
