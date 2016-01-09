@@ -285,7 +285,12 @@ func (p *peer) handshake(ctx context.Context, iden node.Identity) error {
 		return err
 	}
 
-	// Fail if the node id is the same.
+	// Fail if the id is invalid.
+	if !node.ValidateId(remoteId) {
+		return errors.New("Invalid remote id")
+	}
+
+	// Fail if the id is the same as the id of the local node.
 	if node.CompareId(remoteId, iden.Id) {
 		return errors.New("Peer claims to have the same id")
 	}
