@@ -2,12 +2,15 @@ package commands
 
 import (
 	"errors"
+	"fmt"
 	"github.com/boreq/lainnet/cli"
 	"github.com/boreq/lainnet/config"
 	"github.com/boreq/lainnet/network/node"
 	"github.com/boreq/lainnet/utils"
 	"os"
 )
+
+const defaultKeypairBits = 4096
 
 var initCmd = cli.Command{
 	Options: []cli.Option{
@@ -19,8 +22,8 @@ var initCmd = cli.Command{
 		cli.Option{
 			Name:        "b",
 			Type:        cli.Int,
-			Default:     4096,
-			Description: "Number of bits in the generated RSA key (default 4096)",
+			Default:     defaultKeypairBits,
+			Description: fmt.Sprintf("Number of bits in the generated RSA key (default %d)", defaultKeypairBits),
 		},
 	},
 	Run:              runInit,
