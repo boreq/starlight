@@ -47,9 +47,8 @@ func runInit(c cli.Context) error {
 	}
 
 	// Generate new identity.
-	// TODO: difficulty
 	bits := c.Options["b"].Int()
-	iden, err := node.GenerateIdentity(bits, 0)
+	iden, err := node.GenerateIdentity(bits)
 	if err != nil {
 		return err
 	}
