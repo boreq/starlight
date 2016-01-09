@@ -1,3 +1,4 @@
+// Package protocol handles encoding and decoding of protobuf messages.
 package protocol
 
 import (
@@ -11,6 +12,7 @@ import (
 
 var log = utils.GetLogger("protocol")
 
+// Encode converts a protobuf message into its wire format.
 func Encode(msg proto.Message) ([]byte, error) {
 	buf := &bytes.Buffer{}
 
@@ -33,6 +35,7 @@ func Encode(msg proto.Message) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// Decode decodes a slice of bytes back into a protobuf message.
 func Decode(data []byte) (proto.Message, error) {
 	buf := bytes.NewBuffer(data)
 
