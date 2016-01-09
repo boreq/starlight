@@ -1,3 +1,5 @@
+// Package local implements functionality related to communication beetween CLI
+// clients and the local daemon.
 package local
 
 import (

@@ -1,3 +1,5 @@
+// Package backend implements an object which handles RPC calls as defined
+// by the standard library package net/rpc.
 package backend
 
 import (
