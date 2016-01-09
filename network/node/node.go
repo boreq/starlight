@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
-	"github.com/boreq/lainnet/crypto"
+	lcrypto "github.com/boreq/lainnet/crypto"
 	"github.com/boreq/lainnet/utils"
 	"io/ioutil"
 	"path"
@@ -42,8 +42,8 @@ func NewId(id string) (ID, error) {
 
 type Identity struct {
 	Id      ID
-	PubKey  crypto.PublicKey
-	PrivKey crypto.PrivateKey
+	PubKey  lcrypto.PublicKey
+	PrivKey lcrypto.PrivateKey
 }
 
 type NodeInfo struct {
@@ -51,7 +51,13 @@ type NodeInfo struct {
 	Address string
 }
 
+// minKeyBits is the minimum bit size of a generated RSA keypair used as the
+// node's identity.
 const minKeyBits = 2048
+
+// idCryptoPuzzleDifficulty is a number of required zero bits at the beginning
+// of a node ID which is simply a hash of a public key.
+const idCryptoPuzzleDifficulty = 5
 
 // CompareId returns true if two IDs are exactly the same.
 func CompareId(a, b ID) bool {
@@ -68,31 +74,40 @@ func Distance(a, b ID) ([]byte, error) {
 // ValidateId returns true if a node id is valid - has proper length and proper
 // structure (correct length of a prefix consisting of zero bits).
 func ValidateId(id ID) bool {
-	if len(id) != crypto.KeyDigestLength {
+	if len(id) != lcrypto.KeyDigestLength {
 		return false
 	}
-	// TODO implement the prefix checks
+	if utils.ZerosLen(id) < idCryptoPuzzleDifficulty {
+		return false
+	}
 	return true
 }
 
-// Generates a fresh identity (keypair) for a local node.
-func GenerateIdentity(bits, difficulty int) (*Identity, error) {
+// Generates a fresh identity (keypair) for a local node. The provided bits
+// parameter must be bigger or equal to minKeyBits constant or the function
+// will return an error.
+func GenerateIdentity(bits int) (*Identity, error) {
 	// Should this be placed here and not in the init command?
 	if bits < minKeyBits {
 		return nil, fmt.Errorf("Use at least %d bits to generate a key", minKeyBits)
 	}
 
-	privKey, pubKey, err := crypto.GenerateKeypair(bits)
-	if err != nil {
-		return nil, err
-	}
+	for {
+		privKey, pubKey, err := lcrypto.GenerateKeypair(bits)
+		if err != nil {
+			return nil, err
+		}
 
-	id, err := pubKey.Hash()
-	if err != nil {
-		return nil, err
-	}
+		id, err := pubKey.Hash()
+		if err != nil {
+			return nil, err
+		}
 
-	return &Identity{id, pubKey, privKey}, nil
+		// Check if the puzzle has been solved.
+		if utils.ZerosLen(id) >= idCryptoPuzzleDifficulty {
+			return &Identity{id, pubKey, privKey}, nil
+		}
+	}
 }
 
 const identityFilename = "identity.pem"
@@ -126,7 +141,7 @@ func LoadLocalIdentity(directory string) (*Identity, error) {
 	}
 
 	block, _ := pem.Decode(data)
-	privKey, err := crypto.NewPrivateKey(block.Bytes)
+	privKey, err := lcrypto.NewPrivateKey(block.Bytes)
 	if err != nil {
 		return nil, err
 	}

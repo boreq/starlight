@@ -7,7 +7,9 @@ import (
 )
 
 func TestPublic(t *testing.T) {
-	iden, err := GenerateIdentity(2048, 0)
+	const numBits = 2048
+
+	iden, err := GenerateIdentity(numBits)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -27,4 +29,40 @@ func TestPublic(t *testing.T) {
 		t.Fatal(err)
 	}
 	fmt.Printf("%x\n", h)
+}
+
+func TestValidate(t *testing.T) {
+	const numBits = 2048
+
+	iden, err := GenerateIdentity(numBits)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Correct.
+	if !ValidateId(iden.Id) {
+		t.Fatal("Id validation failed")
+	}
+}
+
+func BenchmarkGenerateIdentity2048(b *testing.B) {
+	const numBits = 2048
+
+	for i := 0; i < b.N; i++ {
+		_, err := GenerateIdentity(numBits)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkGenerateIdentity4096(b *testing.B) {
+	const numBits = 4096
+
+	for i := 0; i < b.N; i++ {
+		_, err := GenerateIdentity(numBits)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
 }
