@@ -14,8 +14,8 @@ import (
 	"io"
 )
 
-func New(rw io.ReadWriter, decoderHMAC, encoderHMAC hash.Hash, decoderCipher, encoderCipher cipher.BlockMode) (transport.Encoder, transport.Decoder) {
-	enc := NewEncoder(rw, encoderHMAC, encoderCipher)
-	dec := NewDecoder(rw, decoderHMAC, decoderCipher)
+func New(rw io.ReadWriter, decoderHMAC, encoderHMAC hash.Hash, decoderCipher, encoderCipher cipher.BlockMode, decoderNonce, encoderNonce uint32) (transport.Encoder, transport.Decoder) {
+	enc := NewEncoder(rw, encoderHMAC, encoderCipher, encoderNonce)
+	dec := NewDecoder(rw, decoderHMAC, decoderCipher, decoderNonce)
 	return enc, dec
 }
