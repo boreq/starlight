@@ -250,7 +250,7 @@ type nodeData struct {
 }
 
 func addEntryToList(l *list.List, id node.ID, nd *node.NodeInfo) {
-	distance, err := distance(id, nd.Id)
+	distance, err := node.Distance(id, nd.Id)
 	if err != nil {
 		return
 	}
@@ -443,9 +443,4 @@ func nodeDataListToSlice(l *list.List) []node.NodeInfo {
 		i++
 	}
 	return rv
-}
-
-// Calculates the distance between two nodes.
-func distance(a, b node.ID) ([]byte, error) {
-	return utils.XOR(a, b)
 }
