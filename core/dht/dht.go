@@ -1,9 +1,7 @@
 package dht
 
 import (
-	"container/list"
 	"crypto"
-	"errors"
 	"github.com/boreq/lainnet/core/dht/channelstore"
 	"github.com/boreq/lainnet/core/dht/datastore"
 	"github.com/boreq/lainnet/core/dht/kbuckets"
@@ -12,7 +10,6 @@ import (
 	"github.com/boreq/lainnet/network/node"
 	"github.com/boreq/lainnet/protocol/message"
 	"github.com/boreq/lainnet/utils"
-	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/context"
 	"math/rand"
 	"time"
@@ -243,60 +240,6 @@ func (d *dht) Ping(ctx context.Context, id node.ID) (*time.Duration, error) {
 	}
 }
 
-type nodeData struct {
-	Info      *node.NodeInfo
-	Distance  []byte
-	Processed bool
-}
-
-func addEntryToList(l *list.List, id node.ID, nd *node.NodeInfo) {
-	distance, err := node.Distance(id, nd.Id)
-	if err != nil {
-		return
-	}
-
-	newEntry := &nodeData{
-		&node.NodeInfo{nd.Id, nd.Address},
-		distance,
-		false,
-	}
-
-	var elem *list.Element = nil
-	for elem = l.Front(); elem != nil; elem = elem.Next() {
-		entry := elem.Value.(*nodeData)
-		// If new one is closer insert it before this element.
-		res, _ := utils.Compare(distance, entry.Distance)
-		if res > 0 {
-			break
-		}
-	}
-
-	if elem != nil {
-		l.InsertBefore(newEntry, elem)
-	} else {
-		l.PushBack(newEntry)
-	}
-}
-
-func (d *dht) FindNode(ctx context.Context, id node.ID) (node.NodeInfo, error) {
-	log.Debugf("FindNode %s", id)
-	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
-	defer cancel()
-
-	nodes, err := d.findNode(ctx, id, true)
-	if err != nil {
-		return node.NodeInfo{}, err
-	}
-	log.Debugf("FindNode got %d results", len(nodes))
-	if len(nodes) > 0 && node.CompareId(nodes[0].Id, id) {
-		return nodes[0], nil
-	} else {
-		return node.NodeInfo{}, errors.New("Node not found")
-	}
-}
-
-type messageFactory func(id node.ID) proto.Message
-
 // createNodesMessage creates a Nodes message with the 'k' known nodes closest
 // to the provided id.
 func (d *dht) createNodesMessage(id node.ID) *message.Nodes {
@@ -310,137 +253,4 @@ func (d *dht) createNodesMessage(id node.ID) *message.Nodes {
 		msg.Nodes = append(msg.Nodes, ndInfo)
 	}
 	return msg
-}
-
-func (d *dht) findNode(ctx context.Context, id node.ID, breakOnResult bool) ([]node.NodeInfo, error) {
-	msgFactory := func(id node.ID) proto.Message {
-		rv := &message.FindNode{
-			Id: id,
-		}
-		return rv
-	}
-	return d.findNodeCustom(ctx, id, msgFactory, breakOnResult)
-}
-
-// findNode attempts to locate k closest nodes to a given key. If breakOnResult
-// is true the lookup will stop immidiately when a result with a matching key
-// is found. Otherwise the lookup will continue anyway to find k closest nodes.
-func (d *dht) findNodeCustom(ctx context.Context, id node.ID, msgFac messageFactory, breakOnResult bool) ([]node.NodeInfo, error) {
-	log.Debugf("findNode %s, break: %t", id, breakOnResult)
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	results := list.New()
-	result := make(chan *list.List)
-
-	// Initial nodes from kbuckets. Take more than 'a' since some of them
-	// can be offline.
-	nodes := d.rt.GetClosest(id, k)
-	if len(nodes) == 0 {
-		log.Debug("findNode buckets empty, aborting")
-		return nodeDataListToSlice(results), errors.New("Could not locate the node")
-	}
-	for _, nd := range nodes {
-		addEntryToList(results, id, &nd)
-	}
-	if elem := results.Front(); elem != nil && node.CompareId(elem.Value.(*nodeData).Info.Id, id) {
-		log.Debug("findNode found in buckets")
-		return nodeDataListToSlice(results), nil
-	}
-
-	// Handle incoming messages.
-	go func() {
-		c, cancel := d.net.Subscribe()
-		defer cancel()
-		for {
-			select {
-			case msg := <-c:
-				switch pMsg := msg.Message.(type) {
-				case *message.Nodes:
-					for _, nd := range pMsg.Nodes {
-						// Add to the list.
-						ndInfo := &node.NodeInfo{nd.GetId(), nd.GetAddress()}
-						if !node.CompareId(ndInfo.Id, d.self.Id) {
-							addEntryToList(results, id, ndInfo)
-							log.Debugf("findNode new node from response %s", ndInfo.Id)
-							// If this is the right node return the results already.
-							// TODO fix this
-							if breakOnResult && node.CompareId(nd.GetId(), id) {
-								result <- results
-								return
-							}
-						}
-					}
-				}
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-
-	var noBetterResults bool = false
-
-	for {
-		// Send new FindNode messages.
-		counterSent := 0
-		counterIter := 0
-		for elem := results.Front(); elem != nil; elem = elem.Next() {
-			counterIter++
-			// Stop after sending 'a' messages and await results.
-			if counterSent > a {
-				break
-			}
-
-			// Stop if messages were already sent to 'k' closest nodes.
-			if counterIter > k {
-				return nodeDataListToSlice(results), nil
-			}
-
-			// Iterated over all results and nothing was sent more
-			// than on time in a row - nothing new was received.
-			if counterSent == 0 && elem.Next() == nil {
-				if !noBetterResults {
-					noBetterResults = true
-				} else {
-					return nodeDataListToSlice(results), nil
-				}
-			}
-
-			// Send new messages.
-			entry := elem.Value.(*nodeData)
-			if !entry.Processed {
-				entry.Processed = true
-				log.Debugf("findNode dial %s", entry.Info.Id)
-				peer, err := d.net.Dial(*entry.Info)
-				if err == nil {
-					counterSent++
-					msg := msgFac(id)
-					log.Debugf("findNode send to %s", entry.Info.Id)
-					go peer.SendWithContext(ctx, msg)
-				}
-			}
-		}
-
-		// Await results.
-		log.Debug("findNode waiting")
-		select {
-		case <-result:
-			return nodeDataListToSlice(results), nil
-		case <-ctx.Done():
-			return nodeDataListToSlice(results), ctx.Err()
-		case <-time.After(1 * time.Second):
-		}
-	}
-}
-
-func nodeDataListToSlice(l *list.List) []node.NodeInfo {
-	rv := make([]node.NodeInfo, l.Len())
-	i := 0
-	for elem := l.Front(); elem != nil; elem = elem.Next() {
-		entry := elem.Value.(*nodeData)
-		rv[i] = *entry.Info
-		i++
-	}
-	return rv
 }
