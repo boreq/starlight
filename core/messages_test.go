@@ -9,7 +9,7 @@ import (
 func BenchmarkChannelMessageCryptoPuzzle(b *testing.B) {
 	var nonce uint64
 	var timestamp int64 = 10
-	text := "some kind of a message"
+	var text string = "some kind of a message"
 	msg := &message.ChannelMessage{
 		ChannelId: []byte("channel id"),
 		NodeId:    []byte("node id"),
@@ -18,7 +18,7 @@ func BenchmarkChannelMessageCryptoPuzzle(b *testing.B) {
 		Nonce:     &nonce,
 	}
 
-	data, err := channelMessageDataToSign(msg)
+	data, err := channelMessageToBytes(msg)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -45,7 +45,7 @@ func TestValidate(t *testing.T) {
 		Nonce:     &nonce,
 	}
 
-	data, err := channelMessageDataToSign(msg)
+	data, err := channelMessageToBytes(msg)
 	if err != nil {
 		t.Fatal(err)
 	}
