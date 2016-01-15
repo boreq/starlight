@@ -81,18 +81,6 @@ func (n *lainnet) Subscribe() (chan dispatcher.IncomingMessage, dispatcher.Cance
 	return n.disp.Subscribe()
 }
 
-func (n *lainnet) SendMessage(ctx context.Context, id node.ID, text string) error {
-	p, err := n.dht.Dial(ctx, id)
-	if err != nil {
-		return err
-	}
-	msg, err := n.createPrivateMessage(id, text)
-	if err != nil {
-		return err
-	}
-	return p.SendWithContext(ctx, msg)
-}
-
 // handleMessage handles the incoming messages.
 func (n *lainnet) handleMessage(msg dispatcher.IncomingMessage) error {
 	switch pMsg := msg.Message.(type) {

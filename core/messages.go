@@ -95,6 +95,10 @@ func (n *lainnet) handlePrivateMessageMsg(msg *message.PrivateMessage, sender no
 }
 
 func (n *lainnet) SendChannelMessage(ctx context.Context, channelName string, text string) error {
+	if len(text) > maxChannelMessageLength {
+		return errors.New("Message is too long")
+	}
+
 	// Are we even in the channel?
 	channelId := channel.CreateId(channelName)
 	ch := n.getChannel(channelId)
@@ -117,6 +121,22 @@ func (n *lainnet) SendChannelMessage(ctx context.Context, channelName string, te
 	}
 
 	return nil
+}
+
+func (n *lainnet) SendMessage(ctx context.Context, id node.ID, text string) error {
+	if len(text) > maxPrivateMessageLength {
+		return errors.New("Message is too long")
+	}
+
+	p, err := n.dht.Dial(ctx, id)
+	if err != nil {
+		return err
+	}
+	msg, err := n.createPrivateMessage(id, text)
+	if err != nil {
+		return err
+	}
+	return p.SendWithContext(ctx, msg)
 }
 
 // createChannelMessage creates a message containing text sent in the specified
@@ -185,8 +205,11 @@ var maxChannelMessageFutureAge = 30 * time.Second
 // then it will be rejected.
 var maxChannelMessageAge = 5 * time.Minute
 
-// maxChannelMessageAge is the max total length of a message sent in a channel.
+// maxChannelMessageLength is the max length of a message sent in a channel.
 var maxChannelMessageLength = 500
+
+// maxPrivateMessageLength is the max length of a private message.
+var maxPrivateMessageLength = 500
 
 func (n *lainnet) validateChannelMessage(ctx context.Context, msg *message.ChannelMessage) error {
 	// IDs.
@@ -243,6 +266,11 @@ func (n *lainnet) validatePrivateMessage(msg *message.PrivateMessage, sender nod
 
 	if !node.CompareId(sender, msg.GetNodeId()) {
 		return errors.New("Invalid node id")
+	}
+
+	// Text.
+	if len(msg.GetText()) > maxPrivateMessageLength {
+		return errors.New("Message is too long")
 	}
 
 	// Nonce.
