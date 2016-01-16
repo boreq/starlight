@@ -159,12 +159,14 @@ func (d *dht) findNodeCustom(ctx context.Context, id node.ID, msgFac messageFact
 
 		// Already processed all k closest nodes.
 		if counterIter >= k && allProcessed {
+			log.Debug("findNode counterIter and allProcessed")
 			return results.Results(), nil
 		}
 
 		// No new results, everything we have has been processed so
 		// is no point in waiting for more.
 		if prevAllProcessed && allProcessed {
+			log.Debug("findNode prevAllProcessed and allProcessed")
 			return results.Results(), nil
 		}
 		prevAllProcessed = allProcessed
@@ -179,13 +181,13 @@ func (d *dht) findNodeCustom(ctx context.Context, id node.ID, msgFac messageFact
 	}
 }
 
-// addressData indicates one of the addresses returned by the nodes during
-// the lookup procedure. It is normally related to a node id by being stored
+// addressData stores one of the addresses returned by the nodes during
+// the lookup procedure. It is normally linked to a node id by being stored
 // in a nodeData structure.
 type addressData struct {
 	// Network address in the format used by the net package.
 	Address string
-	// Sources is a list of nodes that sent that this address.
+	// Sources is a list of nodes that sent this address.
 	Sources []node.ID
 	// Processed is true if the lookup procedure tried connecting to this
 	// address.
@@ -200,7 +202,6 @@ type nodeData struct {
 	Id        node.ID
 	Addresses []*addressData
 	Distance  []byte
-	Found     bool
 	lock      sync.Mutex
 }
 
@@ -270,7 +271,7 @@ func (nd *nodeData) GetValidAddress() (*addressData, error) {
 // IsProcessed returns true if the address for this node has been found or
 // it hasn't been found but there are no more addresses to query.
 func (nd *nodeData) IsProcessed() bool {
-	if nd.Found {
+	if _, err := nd.GetValidAddress(); err == nil {
 		return true
 	}
 
@@ -334,9 +335,8 @@ func (l *resultsList) Add(sender node.ID, nd *node.NodeInfo) error {
 	}
 
 	newEntry := &nodeData{
-		Id:        nd.Id,
-		Addresses: []*addressData{},
-		Distance:  distance,
+		Id:       nd.Id,
+		Distance: distance,
 	}
 	newEntry.Insert(sender, nd.Address)
 
@@ -369,7 +369,7 @@ func (l *resultsList) Add(sender node.ID, nd *node.NodeInfo) error {
 	return nil
 }
 
-// Get is used to get lookup results for further queries. It returns k first
+// Get is used to get lookup results for further queries. It returns first k
 // elements from the list.
 func (l *resultsList) Get(k int) []*nodeData {
 	l.lock.Lock()
