@@ -74,7 +74,7 @@ func (d *dht) Init(nodes []node.NodeInfo) error {
 
 	// Init the DHT - populate buckets with initial nodes.
 	for _, nodeInfo := range nodes {
-		peer, err := d.net.Dial(nodeInfo)
+		peer, err := d.netDial(nodeInfo)
 		if err != nil {
 			log.Debugf("Init dial %s, err: %s", nodeInfo.Id, err)
 			continue
@@ -185,7 +185,17 @@ func (d *dht) Dial(ctx context.Context, id node.ID) (network.Peer, error) {
 	if err != nil {
 		return nil, err
 	}
-	return d.net.Dial(nd)
+	return d.netDial(nd)
+}
+
+// netDial wraps net.Dial in order to remove a node from the buckets if it fails
+// to respond or returns a different error.
+func (d *dht) netDial(nd node.NodeInfo) (network.Peer, error) {
+	p, err := d.net.Dial(nd)
+	if err != nil {
+		d.rt.Unresponsive(nd.Id, nd.Address)
+	}
+	return p, err
 }
 
 func (d *dht) Ping(ctx context.Context, id node.ID) (*time.Duration, error) {

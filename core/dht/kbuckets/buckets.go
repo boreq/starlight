@@ -9,20 +9,25 @@ import (
 
 type RoutingTable interface {
 	Update(id node.ID, address string)
+	Unresponsive(id node.ID, address string)
 	GetClosest(id node.ID, a int) []node.NodeInfo
 }
 
 func New(self node.ID, k int) RoutingTable {
 	rw := &buckets{
 		buckets: []*bucket{&bucket{}},
+		cache:   []*bucket{&bucket{}},
 		k:       k,
 		self:    self,
 	}
 	return rw
 }
 
+var log = utils.GetLogger("kbuckets")
+
 type buckets struct {
 	buckets []*bucket
+	cache   []*bucket
 	k       int
 	self    node.ID
 	lock    sync.Mutex
@@ -32,6 +37,19 @@ func (b *buckets) Update(id node.ID, address string) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 	b.update(id, address)
+}
+
+func (b *buckets) Unresponsive(id node.ID, address string) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	i, err := b.bucketIndex(id)
+	if err != nil {
+		return
+	}
+
+	b.buckets[i].Unresponsive(id, address)
+	b.buckets[i].TryReplaceLast(b.cache[i])
 }
 
 func (b *buckets) update(id node.ID, address string) {
@@ -46,7 +64,13 @@ func (b *buckets) update(id node.ID, address string) {
 	} else {
 		// Only the last bucket can be split and can we add more buckets?
 		if i == len(b.buckets)-1 && len(b.buckets) < len(b.self)*8 {
-			// Split.
+			// Cache will always be empty at this point.
+			if b.cache[i].Len() != 0 {
+				log.Debug("Warning, replacement cache was not empty!")
+				b.cache[i].Clear()
+			}
+			b.cache = append(b.cache, &bucket{})
+			// Split buckets.
 			tmp := b.buckets[i]
 			b.buckets[i] = &bucket{}
 			b.buckets = append(b.buckets, &bucket{})
@@ -62,8 +86,11 @@ func (b *buckets) update(id node.ID, address string) {
 			b.update(id, address)
 		} else {
 			// We can't split, drop last and insert.
-			b.buckets[i].DropLast()
-			b.buckets[i].Update(id, address)
+			b.cache[i].Update(id, address)
+			if b.cache[i].Len() > b.k {
+				b.cache[i].DropLast()
+			}
+			b.buckets[i].TryReplaceLast(b.cache[i])
 		}
 	}
 }

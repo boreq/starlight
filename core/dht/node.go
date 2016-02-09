@@ -85,7 +85,7 @@ func (d *dht) findNodeCustom(ctx context.Context, id node.ID, msgFac messageFact
 				if err == nil {
 					ndInfo := node.NodeInfo{ndData.Id, address.Address}
 					address.Processed = true
-					_, err := d.net.Dial(ndInfo)
+					_, err := d.netDial(ndInfo)
 					if err == nil {
 						log.Debug("findNode got a response")
 						// Otherwise there will be no results.
@@ -147,7 +147,7 @@ func (d *dht) findNodeCustom(ctx context.Context, id node.ID, msgFac messageFact
 			}
 			ndInfo := node.NodeInfo{entry.Id, address.Address}
 			address.Processed = true
-			peer, err := d.net.Dial(ndInfo)
+			peer, err := d.netDial(ndInfo)
 			if err == nil {
 				address.Valid = true
 				counterSent++

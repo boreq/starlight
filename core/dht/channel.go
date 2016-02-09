@@ -31,7 +31,7 @@ func (d *dht) PutChannel(ctx context.Context, id []byte) error {
 	go func() {
 		counter := 0
 		for _, nodeInfo := range nodes {
-			peer, err := d.net.Dial(nodeInfo)
+			peer, err := d.netDial(nodeInfo)
 			if err == nil {
 				err := peer.SendWithContext(d.ctx, msg)
 				if err == nil {
