@@ -68,6 +68,9 @@ func (b *bucket) Unresponsive(id node.ID, address string) {
 // presumed to be a replacement cache) and inserts it into this bucket.
 func (b *bucket) TryReplaceLast(c *bucket) error {
 	el := b.entries.Back()
+	if el == nil {
+		return errors.New("The bucket is empty")
+	}
 	entry := el.Value.(*bucketEntry)
 	if !entry.Stale {
 		return errors.New("The last entry is not stale")

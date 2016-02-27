@@ -25,7 +25,7 @@ func TestBucket(t *testing.T) {
 	}
 }
 
-// TestBucket tests the replacement cache mechanism.
+// TestTryReplace tests the replacement cache mechanism.
 func TestTryReplace(t *testing.T) {
 	b := &bucket{}
 	b.Update([]byte{0}, "addr0")
@@ -51,5 +51,17 @@ func TestTryReplace(t *testing.T) {
 	}
 	if b.Len() != 2 || c.Len() != 0 {
 		t.Fatal("Invalid lengths", b.Len(), c.Len())
+	}
+}
+
+// TestTryReplaceEmpty tests the replacement cache mechanism with an empty bucket.
+func TestTryReplaceEmpty(t *testing.T) {
+	b := &bucket{}
+	c := &bucket{}
+
+	// Fail, the entry in the bucket is not stale.
+	err := b.TryReplaceLast(c)
+	if err == nil {
+		t.Fatal("This should fail because the bucket and the cache are empty")
 	}
 }
