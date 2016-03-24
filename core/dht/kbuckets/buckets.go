@@ -5,20 +5,25 @@ import (
 	"github.com/boreq/lainnet/utils"
 	"sort"
 	"sync"
+	"time"
 )
 
 type RoutingTable interface {
 	Update(id node.ID, address string)
 	Unresponsive(id node.ID, address string)
 	GetClosest(id node.ID, a int) []node.NodeInfo
+	PerformedLookup(id node.ID)
+	GetForRefresh() []node.ID
+	GetForInitialRefresh() []node.ID
 }
 
-func New(self node.ID, k int) RoutingTable {
+func New(self node.ID, k int, refreshAfter time.Duration) RoutingTable {
 	rw := &buckets{
-		buckets: []*bucket{&bucket{}},
-		cache:   []*bucket{&bucket{}},
-		k:       k,
-		self:    self,
+		buckets:      []*bucket{&bucket{}},
+		cache:        []*bucket{&bucket{}},
+		k:            k,
+		refreshAfter: refreshAfter,
+		self:         self,
 	}
 	return rw
 }
@@ -26,11 +31,45 @@ func New(self node.ID, k int) RoutingTable {
 var log = utils.GetLogger("kbuckets")
 
 type buckets struct {
-	buckets []*bucket
-	cache   []*bucket
-	k       int
-	self    node.ID
-	lock    sync.Mutex
+	buckets      []*bucket
+	cache        []*bucket
+	k            int
+	refreshAfter time.Duration
+	self         node.ID
+	lock         sync.Mutex
+}
+
+func (b *buckets) PerformedLookup(id node.ID) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	i, err := b.bucketIndex(id)
+	if err != nil {
+		return
+	}
+
+	now := time.Now()
+	b.buckets[i].LastLookup = &now
+}
+
+func (b *buckets) GetForRefresh() []node.ID {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	var rv []node.ID
+	now := time.Now()
+	for i, bu := range b.buckets {
+		if bu.LastLookup == nil || (*bu.LastLookup).Add(b.refreshAfter).Before(now) {
+			r := randomId(b.self, i)
+			rv = append(rv, r)
+		}
+	}
+	return rv
+}
+
+func (b *buckets) GetForInitialRefresh() []node.ID {
+	var rv []node.ID
+	return rv
 }
 
 func (b *buckets) Update(id node.ID, address string) {

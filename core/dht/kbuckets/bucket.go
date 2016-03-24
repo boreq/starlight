@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"errors"
 	"github.com/boreq/lainnet/network/node"
+	"time"
 )
 
 type bucketEntry struct {
@@ -12,7 +13,8 @@ type bucketEntry struct {
 }
 
 type bucket struct {
-	entries list.List
+	entries    list.List
+	LastLookup *time.Time
 }
 
 // Len returns the number of elements in a bucket.
