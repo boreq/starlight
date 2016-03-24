@@ -28,6 +28,9 @@ const SigningHash = crypto.SHA256
 // Stored public keys will be removed after this time passes.
 const pubKeyStoreTimeout = 2 * time.Hour
 
+// How often the bootstrap procedure should run.
+const bootstrapInterval = time.Hour
+
 var log = utils.GetLogger("dht")
 
 func New(ctx context.Context, net network.Network, ident node.Identity) DHT {
@@ -101,7 +104,7 @@ func (d *dht) Init(nodes []node.NodeInfo) error {
 	if err != nil {
 		return err // TODO don't abort I think
 	}
-	go d.runBootstrap(d.ctx, time.Hour)
+	go d.runBootstrap(d.ctx, bootstrapInterval)
 
 	return nil
 }
