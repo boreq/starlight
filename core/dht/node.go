@@ -17,11 +17,14 @@ func (d *dht) FindNode(ctx context.Context, id node.ID) (node.NodeInfo, error) {
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 
+	// Run the lookup procedure.
 	nodes, err := d.findNode(ctx, id, true)
 	if err != nil {
 		return node.NodeInfo{}, err
 	}
 	log.Debugf("FindNode got %d results", len(nodes))
+
+	// Check if the procedure managed to locate the right node.
 	if len(nodes) > 0 && node.CompareId(nodes[0].Id, id) {
 		return nodes[0], nil
 	} else {
@@ -56,6 +59,10 @@ func (d *dht) findNode(ctx context.Context, id node.ID, breakOnResult bool) ([]n
 // in the DHT.
 func (d *dht) findNodeCustom(ctx context.Context, id node.ID, msgFac messageFactory, breakOnResult bool) ([]node.NodeInfo, error) {
 	log.Debugf("findNode %s", id)
+
+	// Register that the lookup was performed to avoid refreshing the bucket
+	// that this node falls into during the bootstrap procedure.
+	d.rt.PerformedLookup(id)
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()

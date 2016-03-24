@@ -29,7 +29,11 @@ const SigningHash = crypto.SHA256
 const pubKeyStoreTimeout = 2 * time.Hour
 
 // How often the bootstrap procedure should run.
-const bootstrapInterval = time.Hour
+const bootstrapInterval = 1 * time.Hour
+
+// How often should a bucket be refreshed if no lookup procedure was performed
+// on the nodes falling within its range.
+const refreshbucketsAfter = 1 * time.Hour
 
 var log = utils.GetLogger("dht")
 
@@ -37,7 +41,7 @@ func New(ctx context.Context, net network.Network, ident node.Identity) DHT {
 	rw := &dht{
 		ctx:          ctx,
 		net:          net,
-		rt:           kbuckets.New(ident.Id, k),
+		rt:           kbuckets.New(ident.Id, k, refreshbucketsAfter),
 		self:         ident,
 		disp:         dispatcher.New(ctx),
 		pubKeysStore: datastore.New(pubKeyStoreTimeout),
@@ -126,9 +130,13 @@ func (d *dht) bootstrap(ctx context.Context) error {
 	log.Debug("bootstrap")
 
 	// Refresh buckets.
-	// TODO
+	ids := d.rt.GetForRefresh()
+	for _, id := range ids {
+		log.Debugf("bootstrap findNode %s", id)
+		go d.findNode(ctx, id, false)
+	}
 
-	// Republish.
+	// Republish local node's public key.
 	err := d.PutPubKey(ctx, d.self.Id, d.self.PubKey)
 	if err != nil {
 		return err
