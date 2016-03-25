@@ -199,17 +199,17 @@ func (n *lainnet) createPrivateMessage(target node.ID, text string) (*message.Pr
 
 // If a channel message has a timestamp further in the future than it will be
 // rejected.
-var maxChannelMessageFutureAge = 30 * time.Second
+const maxChannelMessageFutureAge = 30 * time.Second
 
 // If a channel message has a timestamp older than maxChannelMessageFutureAge
 // then it will be rejected.
-var maxChannelMessageAge = 5 * time.Minute
+const maxChannelMessageAge = 5 * time.Minute
 
 // maxChannelMessageLength is the max length of a message sent in a channel.
-var maxChannelMessageLength = 500
+const maxChannelMessageLength = 500
 
 // maxPrivateMessageLength is the max length of a private message.
-var maxPrivateMessageLength = 500
+const maxPrivateMessageLength = 500
 
 func (n *lainnet) validateChannelMessage(ctx context.Context, msg *message.ChannelMessage) error {
 	// IDs.
