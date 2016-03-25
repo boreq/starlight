@@ -21,6 +21,10 @@ const channelBootstrapInterval = 5 * time.Minute
 // messages to other nodes.
 const channelA = 3
 
+// userTimeout specifies the time after which a user is removed from the channel
+// buckets.
+const userTimeout = 5 * time.Minute
+
 func (n *lainnet) JoinChannel(name string) error {
 	n.channelsMutex.Lock()
 	defer n.channelsMutex.Unlock()
@@ -95,10 +99,6 @@ func (n *lainnet) runBootstrapChannel(ctx context.Context, interval time.Duratio
 		}
 	}
 }
-
-// userTimeout specifies the time after which a user is removed from the channel
-// buckets.
-var userTimeout = 5 * time.Minute
 
 // bootstrapChannel performs required housekeeping procedures related to being
 // in a channel such as republishing the information about that in the DHT.
