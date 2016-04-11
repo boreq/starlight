@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"fmt"
 	"testing"
+	"time"
 )
 
 func TestBuckets(t *testing.T) {
 	selfId := []byte{0x0}
 
-	buckets := New(selfId, 2)
+	buckets := New(selfId, 2, 1*time.Minute)
 
 	buckets.Update([]byte{0x8}, "addr1")
 	buckets.Update([]byte{0xc}, "addr2")
