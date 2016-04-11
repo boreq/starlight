@@ -7,6 +7,10 @@ import (
 )
 
 func TestPublic(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping test in short mode.")
+	}
+
 	const numBits = 2048
 
 	iden, err := GenerateIdentity(numBits)
@@ -32,6 +36,10 @@ func TestPublic(t *testing.T) {
 }
 
 func TestValidate(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping test in short mode.")
+	}
+
 	const numBits = 2048
 
 	iden, err := GenerateIdentity(numBits)
