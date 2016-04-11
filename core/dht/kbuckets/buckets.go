@@ -8,14 +8,7 @@ import (
 	"time"
 )
 
-type RoutingTable interface {
-	Update(id node.ID, address string)
-	Unresponsive(id node.ID, address string)
-	GetClosest(id node.ID, a int) []node.NodeInfo
-	PerformedLookup(id node.ID)
-	GetForRefresh() []node.ID
-	GetForInitialRefresh() []node.ID
-}
+var log = utils.GetLogger("kbuckets")
 
 func New(self node.ID, k int, refreshAfter time.Duration) RoutingTable {
 	rw := &buckets{
@@ -27,8 +20,6 @@ func New(self node.ID, k int, refreshAfter time.Duration) RoutingTable {
 	}
 	return rw
 }
-
-var log = utils.GetLogger("kbuckets")
 
 type buckets struct {
 	buckets      []*bucket
