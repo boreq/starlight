@@ -32,14 +32,14 @@ type Datastore struct {
 // Store inserts a new entry.
 func (d *Datastore) Store(key []byte, data interface{}) error {
 	d.cleanup()
-	sKey := fmt.Sprintf("%x", key)
+	sKey := convertKey(key)
 	d.items[sKey] = item{data, time.Now()}
 	return nil
 }
 
 // Get returns an entry from the datastore. A stale entry can be returned.
 func (d *Datastore) Get(key []byte) (interface{}, error) {
-	sKey := fmt.Sprintf("%x", key)
+	sKey := convertKey(key)
 	item, ok := d.items[sKey]
 	if !ok {
 		return nil, errors.New("Not found")
@@ -56,4 +56,9 @@ func (d *Datastore) cleanup() {
 			delete(d.items, key)
 		}
 	}
+}
+
+// convertKey converts a key in bytes to a string required by maps.
+func convertKey(key []byte) string {
+	return fmt.Sprintf("%x", key)
 }
