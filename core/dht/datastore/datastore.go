@@ -30,7 +30,7 @@ type Datastore struct {
 }
 
 // Store inserts a new entry.
-func (d *Datastore) Store(key, data interface{}) error {
+func (d *Datastore) Store(key []byte, data interface{}) error {
 	d.cleanup()
 	sKey := fmt.Sprintf("%x", key)
 	d.items[sKey] = item{data, time.Now()}
