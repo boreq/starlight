@@ -37,7 +37,9 @@ func (d *Datastore) Store(key []byte, data interface{}) error {
 	return nil
 }
 
-// Get returns an entry from the datastore. A stale entry can be returned.
+// Get returns an entry from the datastore. A stale entry can be returned as
+// there is no guarantee that an item will be removed immediately after the
+// specified amount of time passes.
 func (d *Datastore) Get(key []byte) (interface{}, error) {
 	sKey := convertKey(key)
 	item, ok := d.items[sKey]
