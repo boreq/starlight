@@ -13,7 +13,7 @@ import (
 )
 
 // New creates a new channelstore. The stored messages are removed when they are
-// older then the threshold parameter.
+// older than the threshold parameter.
 func New(threshold time.Duration) *Channelstore {
 	rv := &Channelstore{
 		items:     make(map[string][]*message.StoreChannel),
@@ -56,7 +56,8 @@ func (d *Channelstore) Store(msg *message.StoreChannel) error {
 	return nil
 }
 
-// Get returns a list of entries related to the given channel.
+// Get returns a list of entries related to the given channel. A stale data will
+// never be returned.
 func (d *Channelstore) Get(key []byte) []*message.StoreChannel {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()

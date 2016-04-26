@@ -106,3 +106,23 @@ func TestTimeout(t *testing.T) {
 		t.Fatal("Returned entries:", len(entries2))
 	}
 }
+
+func TestTimeoutNoStore(t *testing.T) {
+	channelKey1 := []byte{0}
+	nodeKey1 := []byte{0}
+	msg1 := makeMessage(channelKey1, nodeKey1)
+
+	c := New(time.Second)
+
+	err := c.Store(msg1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	<-time.After(time.Second)
+
+	entries1 := c.Get(channelKey1)
+	if len(entries1) != 0 {
+		t.Fatal("Returned entries:", len(entries1))
+	}
+}
