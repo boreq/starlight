@@ -30,7 +30,9 @@ type Channelstore struct {
 	mutex     sync.Mutex
 }
 
-// Store inserts a new entry.
+// Store inserts a new entry. If the new entry has an older timestamp than an
+// entry already present in the channelstore then the entry will not be inserted
+// and the method will return no errors.
 func (d *Channelstore) Store(msg *message.StoreChannel) error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
@@ -82,7 +84,7 @@ func (d *Channelstore) cleanup(key string) {
 				d.items[key] = append(d.items[key][:i], d.items[key][i+1:]...)
 			}
 		}
-		if len(d.items) == 0 {
+		if len(d.items[key]) == 0 {
 			delete(d.items, key)
 		}
 	}

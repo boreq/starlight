@@ -126,3 +126,86 @@ func TestTimeoutNoStore(t *testing.T) {
 		t.Fatal("Returned entries:", len(entries1))
 	}
 }
+
+func TestTimeoutShouldNotUpdate(t *testing.T) {
+	channelKey1 := []byte{0}
+	nodeKey1 := []byte{0}
+	msg1 := makeMessage(channelKey1, nodeKey1)
+
+	c := New(2 * time.Second)
+
+	<-time.After(time.Second)
+
+	// Insert a new message.
+	msg2 := makeMessage(channelKey1, nodeKey1)
+	err := c.Store(msg2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Inserting the older message should not change the timeout.
+	err = c.Store(msg1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	entries1 := c.Get(channelKey1)
+	if len(entries1) != 1 {
+		t.Fatal("Returned entries:", len(entries1))
+	}
+}
+
+func TestTimeoutShouldUpdate(t *testing.T) {
+	channelKey1 := []byte{0}
+	nodeKey1 := []byte{0}
+
+	c := New(2 * time.Second)
+
+	// Insert a new message.
+	msg1 := makeMessage(channelKey1, nodeKey1)
+	err := c.Store(msg1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	<-time.After(time.Second)
+
+	// Inserting a new message with the same key to update the timestamp.
+	msg2 := makeMessage(channelKey1, nodeKey1)
+	err = c.Store(msg2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	entries1 := c.Get(channelKey1)
+	if len(entries1) != 1 {
+		t.Fatal("Returned entries:", len(entries1))
+	}
+}
+
+func TestTimeoutShouldCreateTwoEntries(t *testing.T) {
+	channelKey1 := []byte{0}
+	nodeKey1 := []byte{0}
+	nodeKey2 := []byte{1}
+
+	c := New(2 * time.Second)
+
+	// Insert a new message.
+	msg1 := makeMessage(channelKey1, nodeKey1)
+	err := c.Store(msg1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Insert a message with the different node key.
+	msg2 := makeMessage(channelKey1, nodeKey2)
+	err = c.Store(msg2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	entries1 := c.Get(channelKey1)
+	if len(entries1) != 2 {
+		t.Fatal("Returned entries:", len(entries1))
+	}
+}
