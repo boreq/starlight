@@ -8,23 +8,24 @@ import (
 )
 
 type Peer interface {
-	// Returns information about the node.
+	// Info returns basic information about the node.
 	Info() node.NodeInfo
 
-	// Returns the node's public key.
+	// PubKey returns the node's public key.
 	PubKey() crypto.PublicKey
 
-	// Sends a message to the node.
+	// Send sends a message to the node.
 	Send(proto.Message) error
 
-	// Sends a message to the node, returns an error if context is closed.
+	// SendWithContext sends a message to the node and returns an error if
+	// the context is closed.
 	SendWithContext(context.Context, proto.Message) error
 
-	// Receives a message from the node.
+	// Receive receives a message from the node.
 	Receive() (proto.Message, error)
 
-	// Receives a message from the node, returns an error if context is
-	// closed.
+	// ReceiveWithContext receives a message from the node and returns an
+	// error if the context is closed.
 	ReceiveWithContext(context.Context) (proto.Message, error)
 
 	// Close ends communication with the node, closes the underlying
