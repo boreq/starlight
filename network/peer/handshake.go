@@ -17,7 +17,9 @@ import (
 	"strings"
 )
 
-// selectParam
+// selectParam accepts two strings containing words separated by commas. It
+// returns the first word of the first string that is also present in the
+// second string.
 func selectParam(a, b string) string {
 	sA := strings.Split(a, ",")
 	sB := strings.Split(b, ",")
@@ -58,7 +60,7 @@ func newSecure(rw io.ReadWriter, localKeys, remoteKeys crypto.StretchedKeys, loc
 // nonceSize is the size of the nonce used to calculate the shared secret. As
 // the same nonce is converted to the uint32 nonce used by the secure encoder
 // to prevent replay attacks, this value must be equal or higher than 32/8=4.
-var nonceSize = 20
+const nonceSize = 20
 
 // The ride never ends. Performs a handshake, sets up a secure encoder and peer
 // id.

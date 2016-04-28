@@ -15,7 +15,8 @@ import (
 	"time"
 )
 
-var handshakeTimeout = 5 * time.Second
+const handshakeTimeout = 5 * time.Second
+
 var log = utils.GetLogger("peer")
 
 // Use this instead of creating peer structs directly. Initiates communication
