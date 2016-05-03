@@ -100,6 +100,13 @@ func (p *peer) Send(msg proto.Message) error {
 	return p.send(data)
 }
 
+// send sends a raw message to the peer.
+func (p *peer) send(data []byte) error {
+	p.encoderMutex.Lock()
+	defer p.encoderMutex.Unlock()
+	return p.encoder.Encode(data)
+}
+
 func (p *peer) SendWithContext(ctx context.Context, msg proto.Message) error {
 	log.Debugf("%s sending %s: %s", p.id, reflect.TypeOf(msg), msg)
 	data, err := protocol.Encode(msg)
@@ -107,13 +114,6 @@ func (p *peer) SendWithContext(ctx context.Context, msg proto.Message) error {
 		return err
 	}
 	return p.sendWithContext(ctx, data)
-}
-
-// send sends a raw message to the peer.
-func (p *peer) send(data []byte) error {
-	p.encoderMutex.Lock()
-	defer p.encoderMutex.Unlock()
-	return p.encoder.Encode(data)
 }
 
 func (p *peer) sendWithContext(ctx context.Context, data []byte) error {
@@ -129,19 +129,19 @@ func (p *peer) Receive() (proto.Message, error) {
 	return protocol.Decode(data)
 }
 
+// receive receives a raw message from the peer.
+func (p *peer) receive() ([]byte, error) {
+	p.decoderMutex.Lock()
+	defer p.decoderMutex.Unlock()
+	return p.decoder.Decode()
+}
+
 func (p *peer) ReceiveWithContext(ctx context.Context) (proto.Message, error) {
 	data, err := p.receiveWithContext(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return protocol.Decode(data)
-}
-
-// receive receives a raw message from the peer.
-func (p *peer) receive() ([]byte, error) {
-	p.decoderMutex.Lock()
-	defer p.decoderMutex.Unlock()
-	return p.decoder.Decode()
 }
 
 // receiveWithContext receives a raw message to the peer but returns with an
