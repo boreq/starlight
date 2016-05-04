@@ -79,6 +79,8 @@ func (d *dht) Init(nodes []node.NodeInfo) error {
 		}
 	}()
 
+	var foundOnlineNodes = false
+
 	// Init the DHT - populate buckets with initial nodes.
 	for _, nodeInfo := range nodes {
 		peer, err := d.netDial(nodeInfo)
@@ -86,12 +88,32 @@ func (d *dht) Init(nodes []node.NodeInfo) error {
 			log.Debugf("Init dial %s, err: %s", nodeInfo.Id, err)
 			continue
 		}
+		// Exchanging an actual message like Ping (and not just the
+		// handshake related messages automatically exchanged when
+		// connecting) will cause several automatic mechanisms like
+		// bucket population to be executed without further
+		// intervention, so this is actually just a hack to avoid code
+		// duplication and cramming more of it in this function.
 		random := rand.Uint32()
 		msg := &message.Ping{Random: &random}
 		err = peer.Send(msg)
 		if err != nil {
 			log.Debugf("Init ping %s, err: %s", nodeInfo.Id, err)
 			continue
+		}
+
+		foundOnlineNodes = true
+	}
+
+	// Since at least one node is needed to function, in case of failure all
+	// provided nodes will be inserted into the buckets (possibly the
+	// network connection is temporarily down or similar issue occured) as
+	// the daemon/bootstrap process wouldn't finish with empty buckets
+	// making it impossible to start the program.
+	if !foundOnlineNodes {
+		log.Debug("Could not dial the provided bootstrap nodes, inserting all of them")
+		for _, nodeInfo := range nodes {
+			d.rt.Update(nodeInfo.Id, nodeInfo.Address)
 		}
 	}
 

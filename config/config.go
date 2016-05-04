@@ -12,8 +12,9 @@ import (
 
 // This part of the config structure is saved in the config file in JSON format.
 type savedConfig struct {
-	ListenAddress  string
-	BootstrapNodes []node.NodeInfo
+	ListenAddress     string
+	IRCGatewayAddress string
+	BootstrapNodes    []node.NodeInfo
 }
 
 // Full config struct.
@@ -83,8 +84,9 @@ func getDefaultBootstrap() []node.NodeInfo {
 func Default() *Config {
 	conf := &Config{
 		savedConfig{
-			ListenAddress:  ":1836",
-			BootstrapNodes: getDefaultBootstrap(),
+			ListenAddress:     ":1836",
+			IRCGatewayAddress: ":6667",
+			BootstrapNodes:    getDefaultBootstrap(),
 		},
 	}
 	return conf

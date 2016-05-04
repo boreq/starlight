@@ -18,6 +18,8 @@ type decoder struct {
 }
 
 func (d *decoder) Decode() (*Message, error) {
+	// The IRC protocol messages are actually delimited with "\r\n", that is
+	// why strings.TrimSpace is called later.
 	line, err := d.reader.ReadString('\n')
 	if err != nil {
 		return nil, err
