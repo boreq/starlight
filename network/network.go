@@ -94,9 +94,9 @@ func (n *network) newConnection(ctx context.Context, conn net.Conn) (peer.Peer, 
 	go func() {
 		for {
 			msg, err := p.ReceiveWithContext(n.ctx)
-			log.Debugf("%s received %s: %s Error: %s", p.Info().Id, reflect.TypeOf(msg), msg, err)
-			if err != nil {
-				// TODO: not always return
+			log.Debugf("%s received %s: %s", p.Info().Id, reflect.TypeOf(msg), msg)
+			if err != nil && p.Closed() {
+				log.Debugf("%s error %s, stopping the dispatcher loop", p.Info().Id, err)
 				return
 			}
 			n.disp.Dispatch(p.Info(), msg)

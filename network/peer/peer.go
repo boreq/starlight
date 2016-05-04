@@ -110,7 +110,12 @@ func (p *peer) Send(msg proto.Message) error {
 func (p *peer) send(data []byte) error {
 	p.encoderMutex.Lock()
 	defer p.encoderMutex.Unlock()
-	return p.encoder.Encode(data)
+	err := p.encoder.Encode(data)
+	if err != nil {
+		log.Debugf("error on send %s, closing %s", err, p.id)
+		p.Close()
+	}
+	return err
 }
 
 func (p *peer) SendWithContext(ctx context.Context, msg proto.Message) error {
@@ -158,7 +163,12 @@ func (p *peer) Receive() (proto.Message, error) {
 func (p *peer) receive() ([]byte, error) {
 	p.decoderMutex.Lock()
 	defer p.decoderMutex.Unlock()
-	return p.decoder.Decode()
+	data, err := p.decoder.Decode()
+	if err != nil {
+		log.Debugf("error on receive %s, closing %s", err, p.id)
+		p.Close()
+	}
+	return data, err
 }
 
 func (p *peer) ReceiveWithContext(ctx context.Context) (proto.Message, error) {
