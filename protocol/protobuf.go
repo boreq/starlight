@@ -1,7 +1,6 @@
 package protocol
 
 import (
-	"errors"
 	"github.com/boreq/lainnet/protocol/message"
 	"github.com/golang/protobuf/proto"
 	"reflect"
@@ -34,7 +33,7 @@ func cmdEncode(msg proto.Message) (uint32, error) {
 	rw, ok := cmdMap[typ]
 	if !ok {
 		log.Debugf("cmdEncode: unknown message type %T", msg)
-		return 0, errors.New("Unknown message type")
+		return 0, UnknownMessageTypeError
 	}
 	return rw, nil
 }
