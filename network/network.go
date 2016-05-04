@@ -40,7 +40,8 @@ func (n *network) Subscribe() (chan dispatcher.IncomingMessage, dispatcher.Cance
 }
 
 func (n *network) Listen() error {
-	log.Debugf("Starting listening on %s, local id %s", n.address, n.iden.Id)
+	log.Printf("Listening on %s", n.address)
+	log.Printf("Local id %s", n.iden.Id)
 
 	listener, err := net.Listen("tcp", n.address)
 	if err != nil {

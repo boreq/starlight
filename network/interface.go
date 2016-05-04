@@ -34,7 +34,7 @@ type Peer interface {
 	// Returns the node's public key.
 	PubKey() crypto.PublicKey
 
-	// Sends a message to a node.
+	// Sends a message to the node.
 	Send(proto.Message) error
 
 	// Sends a message to the node, returns an error if context is closed.
