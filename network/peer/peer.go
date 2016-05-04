@@ -15,12 +15,18 @@ import (
 	"time"
 )
 
+// handshakeTimeout specifies the time assigned for the handshake procedure. If
+// the handshake takes longer the procedure will be aborted and the peer will
+// be disconnected.
 const handshakeTimeout = 5 * time.Second
 
 var log = utils.GetLogger("peer")
 
-// Use this instead of creating peer structs directly. Initiates communication
-// channels and context.
+// New attempts to create a new peer using the provided connection. During that
+// process the handshake and other initialization will be performed. The
+// function accepts the identity of the local node and the listen address of
+// the local node (which is used to extract the port which the local node is
+// listening on).
 func New(ctx context.Context, iden node.Identity, listenAddress string, conn net.Conn) (Peer, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	p := &peer{
@@ -116,9 +122,28 @@ func (p *peer) SendWithContext(ctx context.Context, msg proto.Message) error {
 	return p.sendWithContext(ctx, data)
 }
 
+// sendWithContext attempts to send a raw message to the peer. Unfortunately
+// this function is basically a bug and an ugly workaround around the way
+// the encoder works - the goroutine that it launches will hang until
+// the message is sent, so the function basically returns without confirming
+// that the data has been sent instead of aborting completely.
 func (p *peer) sendWithContext(ctx context.Context, data []byte) error {
-	// TODO
-	return p.send(data)
+	result := make(chan error)
+
+	go func() {
+		err := p.send(data)
+		select {
+		case result <- err:
+		case <-ctx.Done():
+		}
+	}()
+
+	select {
+	case err := <-result:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func (p *peer) Receive() (proto.Message, error) {
@@ -144,9 +169,39 @@ func (p *peer) ReceiveWithContext(ctx context.Context) (proto.Message, error) {
 	return protocol.Decode(data)
 }
 
-// receiveWithContext receives a raw message to the peer but returns with an
-// error when ctx is closed.
+// receiveWithContext attempts to receive a raw message from the peer.
+// This method is an ugly workaround as well - the goroutine that it launches
+// will not terminate until a message is received. That message will be lost if
+// the method returns earlier. Fortunately this is not an issue because of the
+// way the rest of the program is structured - everything is received in the
+// same loop and if the context closes then the peer will be disconnected anyway
+// because it will either be during the handshake or because of the serious
+// protocol error which disconnects the the peer.
 func (p *peer) receiveWithContext(ctx context.Context) (data []byte, err error) {
-	// TODO
-	return p.receive()
+	result := make(chan []byte)
+	resultErr := make(chan error)
+
+	go func() {
+		data, err := p.receive()
+		if err != nil {
+			select {
+			case resultErr <- err:
+			case <-ctx.Done():
+			}
+		} else {
+			select {
+			case result <- data:
+			case <-ctx.Done():
+			}
+		}
+	}()
+
+	select {
+	case data := <-result:
+		return data, nil
+	case err := <-resultErr:
+		return nil, err
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }
