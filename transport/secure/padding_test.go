@@ -13,12 +13,13 @@ func TestPadding(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	data, err = stripPadding(data)
+	buf := bytes.NewBuffer(data)
+	err = stripPadding(buf)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !bytes.Equal(data, original) {
+	if !bytes.Equal(buf.Bytes(), original) {
 		t.FailNow()
 	}
 }

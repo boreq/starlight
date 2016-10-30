@@ -7,15 +7,12 @@ import (
 	"encoding/binary"
 	"errors"
 	"github.com/boreq/lainnet/crypto"
-	"github.com/boreq/lainnet/transport"
-	"github.com/boreq/lainnet/transport/basic"
 	"hash"
 	"io"
 )
 
-func NewDecoder(reader io.Reader, hmac hash.Hash, cipher cipher.BlockMode, nonce uint32) transport.Decoder {
+func newDecoder(hmac hash.Hash, cipher cipher.BlockMode, nonce uint32) *decoder {
 	rv := &decoder{
-		reader: reader,
 		hmac:   hmac,
 		cipher: cipher,
 		nonce:  nonce,
@@ -24,55 +21,60 @@ func NewDecoder(reader io.Reader, hmac hash.Hash, cipher cipher.BlockMode, nonce
 }
 
 type decoder struct {
-	reader io.Reader
 	hmac   hash.Hash
 	cipher cipher.BlockMode
 	nonce  uint32
 }
 
-func (d *decoder) Decode() ([]byte, error) {
-	// Decapsulate using the basic decoder
-	dec := basic.NewDecoder(d.reader)
-	data, err := dec.Decode()
+func (d *decoder) decode(r io.Reader, w io.Writer) error {
+	data := &bytes.Buffer{}
+	_, err := data.ReadFrom(r)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// Check HMAC
-	if len(data) < d.hmac.Size() {
-		return nil, errors.New("HMAC missing")
+	if data.Len() < d.hmac.Size() {
+		return errors.New("HMAC missing")
 	}
-	receivedHm := data[:d.hmac.Size()]
-	data = data[d.hmac.Size():]
-	expectedHm := crypto.Digest(d.hmac, data)
+	receivedHm := make([]byte, d.hmac.Size())
+	_, err = data.Read(receivedHm)
+	if err != nil {
+		return err
+	}
+	expectedHm := crypto.Digest(d.hmac, data.Bytes())
 	if !hmac.Equal(receivedHm, expectedHm) {
-		return nil, errors.New("Invalid HMAC")
+		return errors.New("Invalid HMAC")
 	}
 
 	// Decrypt payload
-	if len(data)%d.cipher.BlockSize() != 0 {
-		return nil, errors.New("Invalid length of the encrypted data")
+	if data.Len()%d.cipher.BlockSize() != 0 {
+		return errors.New("Invalid length of the encrypted data")
 	}
-	d.cipher.CryptBlocks(data, data)
+	bufContent := data.Bytes()
+	d.cipher.CryptBlocks(bufContent, bufContent)
 
 	// Strip padding
-	data, err = stripPadding(data)
+	err = stripPadding(data)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// Check nonce
 	var nonce uint32
-	buf := bytes.NewBuffer(data)
-	if err := binary.Read(buf, binary.BigEndian, &nonce); err != nil {
-		return nil, err
+	if err := binary.Read(data, binary.BigEndian, &nonce); err != nil {
+		return err
 	}
-
-	//nonce := binary.BigEndian.Uint32(data[:8])
 	if nonce != d.nonce {
-		return nil, errors.New("Invalid nonce")
+		return errors.New("Invalid nonce")
 	}
 	d.nonce++
 
-	return buf.Bytes(), nil
+	// Write the data
+	_, err = data.WriteTo(w)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

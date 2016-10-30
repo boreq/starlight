@@ -5,15 +5,12 @@ import (
 	"crypto/cipher"
 	"encoding/binary"
 	"github.com/boreq/lainnet/crypto"
-	"github.com/boreq/lainnet/transport"
-	"github.com/boreq/lainnet/transport/basic"
 	"hash"
 	"io"
 )
 
-func NewEncoder(writer io.Writer, hmac hash.Hash, cipher cipher.BlockMode, nonce uint32) transport.Encoder {
+func newEncoder(hmac hash.Hash, cipher cipher.BlockMode, nonce uint32) *encoder {
 	rv := &encoder{
-		writer: writer,
 		hmac:   hmac,
 		cipher: cipher,
 		nonce:  nonce,
@@ -22,38 +19,42 @@ func NewEncoder(writer io.Writer, hmac hash.Hash, cipher cipher.BlockMode, nonce
 }
 
 type encoder struct {
-	writer io.Writer
 	hmac   hash.Hash
 	cipher cipher.BlockMode
 	nonce  uint32
 }
 
-func (e *encoder) Encode(data []byte) error {
+func (e *encoder) encode(r io.Reader, w io.Writer) error {
 	buf := &bytes.Buffer{}
 
-	// Add a nonce to the payload
+	// Put the nonce and the payload in the buffer
 	if err := binary.Write(buf, binary.BigEndian, e.nonce); err != nil {
 		return err
 	}
-	buf.Write(data)
+	_, err := buf.ReadFrom(r)
+	if err != nil {
+		return err
+	}
 	e.nonce++
 
-	// Encrypt payload
+	// Add padding to the contents of the buffer and encrypt them
 	data, err := addPadding(buf.Bytes(), e.cipher.BlockSize())
 	if err != nil {
 		return err
 	}
 	e.cipher.CryptBlocks(data, data)
 
-	// Calculate HMAC
+	// Calculate the HMAC
 	hm := crypto.Digest(e.hmac, data)
 
-	// Concat HMAC and data
+	// Concat the HMAC and data and write the result to the writer
 	buf.Reset()
 	buf.Write(hm)
 	buf.Write(data)
-
-	// Encapsulate using the basic encoder
-	enc := basic.NewEncoder(e.writer)
-	return enc.Encode(buf.Bytes())
+	_, err = buf.WriteTo(w)
+	if err != nil {
+		return err
+	}
+	log.Debugf("written %d bytes", buf.Len())
+	return nil
 }

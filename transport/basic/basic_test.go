@@ -5,35 +5,28 @@ import (
 	"testing"
 )
 
-// TestBasic checks if data slices are correctly encoded and then decoded.
+// TestBasic checks if the data is correctly encoded and then decoded.
 func TestBasic(t *testing.T) {
 	data := []byte("data")
-	buf := &bytes.Buffer{}
 
-	e := NewEncoder(buf)
-	err := e.Encode(data)
+	in := bytes.NewBuffer(data)
+	out := &bytes.Buffer{}
+	b := New()
+
+	// Encode
+	err := b.Encode(in, out)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	d := NewDecoder(buf)
-	decodedData, err := d.Decode()
+	// Decode
+	in.Reset()
+	err = b.Decode(out, in)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !bytes.Equal(data, decodedData) {
+	if !bytes.Equal(data, in.Bytes()) {
 		t.Fatal("Decoded data is different")
-	}
-}
-
-// TestDecode checks if there are no issues if a reader returns an error.
-func TestDecode(t *testing.T) {
-	buf := bytes.NewBuffer([]byte{})
-
-	d := NewDecoder(buf)
-	_, err := d.Decode()
-	if err == nil {
-		t.Fatal("No error")
 	}
 }

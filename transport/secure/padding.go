@@ -28,23 +28,19 @@ func addPadding(data []byte, blockSize int) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func stripPadding(data []byte) ([]byte, error) {
-	buf := &bytes.Buffer{}
-	buf.Write(data)
-
+func stripPadding(buf *bytes.Buffer) error {
 	// Read padding length
 	var paddingSize uint8
 	if err := binary.Read(buf, binary.BigEndian, &paddingSize); err != nil {
-		return nil, err
+		return err
 	}
 
 	// Sanity
 	if int(paddingSize) > buf.Len() {
-		return nil, errors.New("Padding size bigger than the data length")
+		return errors.New("Padding size bigger than the data size")
 	}
 
 	// Strip padding
-	rw := make([]byte, buf.Len()-int(paddingSize))
-	buf.Read(rw)
-	return rw, nil
+	buf.Truncate(buf.Len() - int(paddingSize))
+	return nil
 }

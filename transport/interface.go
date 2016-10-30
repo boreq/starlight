@@ -1,13 +1,19 @@
-// Package transport defines encoder and decoder interfaces used to send
-// variable length data chunks via a stream connection.
+// Package transport uses layers to encode the data for transport across the
+// network. Multiple layers are added to a wrapper which uses them one by one
+// to perform various tasks such as compression or encryption on the data.
 package transport
 
-// Encoder sends data packets to the underlying writer.
-type Encoder interface {
-	Encode([]byte) error
+import (
+	"io"
+)
+
+type Layer interface {
+	Encode(io.Reader, io.Writer) error
+	Decode(io.Reader, io.Writer) error
 }
 
-// Decoder receives data packets from the underlying reader.
-type Decoder interface {
-	Decode() ([]byte, error)
+type Wrapper interface {
+	AddLayer(Layer)
+	Send([]byte) error
+	Receive() ([]byte, error)
 }

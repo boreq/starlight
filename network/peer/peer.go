@@ -34,7 +34,8 @@ func New(ctx context.Context, iden node.Identity, listenAddress string, conn net
 		cancel: cancel,
 		conn:   conn,
 	}
-	p.encoder, p.decoder = basic.New(conn)
+	p.wrapper = transport.NewWrapper(conn, conn)
+	p.wrapper.AddLayer(basic.New())
 
 	hCtx, cancel := context.WithTimeout(p.ctx, handshakeTimeout)
 	defer cancel()
@@ -62,10 +63,9 @@ type peer struct {
 	cancel       context.CancelFunc
 	conn         net.Conn
 	listenAddr   string
-	encoder      transport.Encoder
-	encoderMutex sync.Mutex
-	decoder      transport.Decoder
-	decoderMutex sync.Mutex
+	wrapper      transport.Wrapper
+	sendMutex    sync.Mutex
+	receiveMutex sync.Mutex
 }
 
 func (p *peer) Info() node.NodeInfo {
@@ -108,9 +108,9 @@ func (p *peer) Send(msg proto.Message) error {
 
 // send sends a raw message to the peer.
 func (p *peer) send(data []byte) error {
-	p.encoderMutex.Lock()
-	defer p.encoderMutex.Unlock()
-	err := p.encoder.Encode(data)
+	p.sendMutex.Lock()
+	defer p.sendMutex.Unlock()
+	err := p.wrapper.Send(data)
 	if err != nil {
 		log.Debugf("error on send %s, closing %s", err, p.id)
 		p.Close()
@@ -161,9 +161,9 @@ func (p *peer) Receive() (proto.Message, error) {
 
 // receive receives a raw message from the peer.
 func (p *peer) receive() ([]byte, error) {
-	p.decoderMutex.Lock()
-	defer p.decoderMutex.Unlock()
-	data, err := p.decoder.Decode()
+	p.receiveMutex.Lock()
+	defer p.receiveMutex.Unlock()
+	data, err := p.wrapper.Receive()
 	if err != nil {
 		log.Debugf("error on receive %s, closing %s", err, p.id)
 		p.Close()

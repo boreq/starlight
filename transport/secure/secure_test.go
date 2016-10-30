@@ -6,7 +6,6 @@ import (
 	"crypto/cipher"
 	"crypto/hmac"
 	lcrypto "github.com/boreq/lainnet/crypto"
-	"github.com/boreq/lainnet/transport/basic"
 	"hash"
 	"testing"
 )
@@ -43,20 +42,24 @@ func TestSecure(t *testing.T) {
 	data := []byte("data")
 	encCipher, decCipher, encHmac, decHmac := get(t)
 
-	buf := &bytes.Buffer{}
-	e := NewEncoder(buf, encHmac, encCipher, nonce)
-	err := e.Encode(data)
+	in := bytes.NewBuffer(data)
+	out := &bytes.Buffer{}
+
+	e := newEncoder(encHmac, encCipher, nonce)
+	err := e.encode(in, out)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	d := NewDecoder(buf, decHmac, decCipher, nonce)
-	decodedData, err := d.Decode()
+	in.Reset()
+
+	d := newDecoder(decHmac, decCipher, nonce)
+	err = d.decode(out, in)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !bytes.Equal(data, decodedData) {
+	if !bytes.Equal(data, in.Bytes()) {
 		t.Fatal("Decoded data is different")
 	}
 }
@@ -68,34 +71,32 @@ func TestSecureNonce(t *testing.T) {
 	data := []byte("data")
 	encCipher, decCipher, encHmac, decHmac := get(t)
 
-	buf := &bytes.Buffer{}
-	e := NewEncoder(buf, encHmac, encCipher, nonceEnc)
-	err := e.Encode(data)
+	in := bytes.NewBuffer(data)
+	out := &bytes.Buffer{}
+
+	e := newEncoder(encHmac, encCipher, nonceEnc)
+	err := e.encode(in, out)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	d := NewDecoder(buf, decHmac, decCipher, nonceDec)
-	_, err = d.Decode()
+	in.Reset()
+
+	d := newDecoder(decHmac, decCipher, nonceDec)
+	err = d.decode(out, in)
 	if err == nil {
 		t.Fatal("No error")
 	}
 }
 
-// TestDecodeEmpty checks what happens if the data decoded by the basic encoder
-// is completely empty.
+// TestDecodeEmpty checks what happens if the decoded data is empty.
 func TestDecodeEmpty(t *testing.T) {
 	_, decCipher, _, decHmac := get(t)
+	in := &bytes.Buffer{}
+	out := &bytes.Buffer{}
 
-	buf := &bytes.Buffer{}
-	e := basic.NewEncoder(buf)
-	err := e.Encode([]byte{})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	d := NewDecoder(buf, decHmac, decCipher, 10)
-	_, err = d.Decode()
+	d := newDecoder(decHmac, decCipher, 10)
+	err := d.decode(in, out)
 	if err == nil {
 		t.Fatal(err)
 	}
@@ -110,20 +111,14 @@ func TestDecodeEmptyEncrypted(t *testing.T) {
 	data := []byte{}
 	hm := lcrypto.Digest(encHmac, data)
 
-	buf := &bytes.Buffer{}
-	buf.Write(hm)
-	buf.Write(data)
-
-	encBuf := &bytes.Buffer{}
-	enc := basic.NewEncoder(encBuf)
-	err := enc.Encode(buf.Bytes())
-	if err != nil {
-		t.Fatal(err)
-	}
+	in := &bytes.Buffer{}
+	in.Write(hm)
+	in.Write(data)
+	out := &bytes.Buffer{}
 
 	// Try to decode that data
-	d := NewDecoder(encBuf, decHmac, decCipher, 10)
-	_, err = d.Decode()
+	d := newDecoder(decHmac, decCipher, 10)
+	err := d.decode(in, out)
 	if err == nil {
 		t.Fatal("No error")
 	}
@@ -138,20 +133,14 @@ func TestDecodeInvalidEncrypted(t *testing.T) {
 	data := []byte("a")
 	hm := lcrypto.Digest(encHmac, data)
 
-	buf := &bytes.Buffer{}
-	buf.Write(hm)
-	buf.Write(data)
-
-	encBuf := &bytes.Buffer{}
-	enc := basic.NewEncoder(encBuf)
-	err := enc.Encode(buf.Bytes())
-	if err != nil {
-		t.Fatal(err)
-	}
+	in := &bytes.Buffer{}
+	in.Write(hm)
+	in.Write(data)
+	out := &bytes.Buffer{}
 
 	// Try to decode that data
-	d := NewDecoder(encBuf, decHmac, decCipher, 10)
-	_, err = d.Decode()
+	d := newDecoder(decHmac, decCipher, 10)
+	err := d.decode(in, out)
 	if err == nil {
 		t.Fatal("No error")
 	}

@@ -13,7 +13,6 @@ import (
 	"github.com/boreq/lainnet/transport/secure"
 	"github.com/boreq/lainnet/utils"
 	"golang.org/x/net/context"
-	"io"
 	"strings"
 )
 
@@ -33,28 +32,28 @@ func selectParam(a, b string) string {
 	return ""
 }
 
-func newSecure(rw io.ReadWriter, localKeys, remoteKeys crypto.StretchedKeys, localNonce, remoteNonce uint32, hashName string, cipherName string) (transport.Encoder, transport.Decoder, error) {
+func newSecure(localKeys, remoteKeys crypto.StretchedKeys, localNonce, remoteNonce uint32, hashName string, cipherName string) (transport.Layer, error) {
 	hash, err := crypto.GetCryptoHash(hashName)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	localCipher, err := crypto.GetCipher(cipherName, localKeys.CipherKey)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	remoteCipher, err := crypto.GetCipher(cipherName, remoteKeys.CipherKey)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	encHmac := hmac.New(hash.New, localKeys.MacKey)
 	decHmac := hmac.New(hash.New, remoteKeys.MacKey)
 	encCipher := cipher.NewCBCEncrypter(localCipher, localKeys.IV)
 	decCipher := cipher.NewCBCDecrypter(remoteCipher, remoteKeys.IV)
-	enc, dec := secure.New(rw, decHmac, encHmac, decCipher, encCipher, remoteNonce, localNonce)
-	return enc, dec, nil
+	layer := secure.New(decHmac, encHmac, decCipher, encCipher, remoteNonce, localNonce)
+	return layer, nil
 }
 
 // nonceSize is the size of the nonce used to calculate the shared secret. As
@@ -223,10 +222,11 @@ func (p *peer) handshake(ctx context.Context, iden node.Identity) error {
 	}
 
 	// Initiate the secure encoder.
-	p.encoder, p.decoder, err = newSecure(p.conn, k1, k2, intLocalNonce, intRemoteNonce, selectedHash, selectedCipher)
+	layer, err := newSecure(k1, k2, intLocalNonce, intRemoteNonce, selectedHash, selectedCipher)
 	if err != nil {
 		return err
 	}
+	p.wrapper.AddLayer(layer)
 
 	//
 	// === EXCHANGE CONFIRMHANDSHAKE MESSAGES ===
