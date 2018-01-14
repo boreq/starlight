@@ -6,8 +6,8 @@ package channelstore
 
 import (
 	"fmt"
-	"github.com/boreq/lainnet/network/node"
-	"github.com/boreq/lainnet/protocol/message"
+	"github.com/boreq/starlight/network/node"
+	"github.com/boreq/starlight/protocol/message"
 	"sync"
 	"time"
 )

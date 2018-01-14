@@ -4,10 +4,10 @@
 package dht
 
 import (
-	"github.com/boreq/lainnet/crypto"
-	"github.com/boreq/lainnet/network"
-	"github.com/boreq/lainnet/network/dispatcher"
-	"github.com/boreq/lainnet/network/node"
+	"github.com/boreq/starlight/crypto"
+	"github.com/boreq/starlight/network"
+	"github.com/boreq/starlight/network/dispatcher"
+	"github.com/boreq/starlight/network/node"
 	"golang.org/x/net/context"
 	"time"
 )

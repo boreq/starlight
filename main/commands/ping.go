@@ -2,8 +2,8 @@ package commands
 
 import (
 	"fmt"
-	"github.com/boreq/lainnet/cli"
-	"github.com/boreq/lainnet/local/backend"
+	"github.com/boreq/starlight/cli"
+	"github.com/boreq/starlight/local/backend"
 	"time"
 )
 

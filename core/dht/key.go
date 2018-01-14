@@ -2,9 +2,9 @@ package dht
 
 import (
 	"errors"
-	"github.com/boreq/lainnet/crypto"
-	"github.com/boreq/lainnet/network/node"
-	"github.com/boreq/lainnet/protocol/message"
+	"github.com/boreq/starlight/crypto"
+	"github.com/boreq/starlight/network/node"
+	"github.com/boreq/starlight/protocol/message"
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/context"
 )

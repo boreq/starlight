@@ -2,7 +2,7 @@ package channel
 
 import (
 	"crypto/sha256"
-	"github.com/boreq/lainnet/crypto"
+	"github.com/boreq/starlight/crypto"
 )
 
 // idHash is a hash used to encode channel names in the DHT.

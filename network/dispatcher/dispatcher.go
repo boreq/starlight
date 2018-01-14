@@ -1,7 +1,7 @@
 package dispatcher
 
 import (
-	"github.com/boreq/lainnet/network/node"
+	"github.com/boreq/starlight/network/node"
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/context"
 	"sync"

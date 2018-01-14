@@ -3,10 +3,10 @@ package core
 import (
 	"bytes"
 	"errors"
-	"github.com/boreq/lainnet/core/channel"
-	"github.com/boreq/lainnet/core/dht"
-	"github.com/boreq/lainnet/network/node"
-	"github.com/boreq/lainnet/protocol/message"
+	"github.com/boreq/starlight/core/channel"
+	"github.com/boreq/starlight/core/dht"
+	"github.com/boreq/starlight/network/node"
+	"github.com/boreq/starlight/protocol/message"
 	"golang.org/x/net/context"
 	"time"
 )
@@ -25,7 +25,7 @@ const channelA = 3
 // buckets.
 const userTimeout = 5 * time.Minute
 
-func (n *lainnet) JoinChannel(name string) error {
+func (n *core) JoinChannel(name string) error {
 	n.channelsMutex.Lock()
 	defer n.channelsMutex.Unlock()
 
@@ -39,7 +39,7 @@ func (n *lainnet) JoinChannel(name string) error {
 	}
 }
 
-func (n *lainnet) PartChannel(name string) error {
+func (n *core) PartChannel(name string) error {
 	n.channelsMutex.Lock()
 	defer n.channelsMutex.Unlock()
 
@@ -55,7 +55,7 @@ func (n *lainnet) PartChannel(name string) error {
 	return NotInChannelError
 }
 
-func (n *lainnet) ListChannels() []string {
+func (n *core) ListChannels() []string {
 	n.channelsMutex.Lock()
 	defer n.channelsMutex.Unlock()
 
@@ -67,14 +67,14 @@ func (n *lainnet) ListChannels() []string {
 }
 
 // inChannel returns true if the local node is already in the channel.
-func (n *lainnet) inChannel(name string) bool {
+func (n *core) inChannel(name string) bool {
 	id := channel.CreateId(name)
 	return n.getChannel(id) != nil
 }
 
 // getChannel returns a pointer to a channel.Channel or nil if the channel has
 // not been joined.
-func (n *lainnet) getChannel(id []byte) *channel.Channel {
+func (n *core) getChannel(id []byte) *channel.Channel {
 	for _, ch := range n.channels {
 		if bytes.Equal(ch.Id, id) {
 			return ch
@@ -85,7 +85,7 @@ func (n *lainnet) getChannel(id []byte) *channel.Channel {
 
 // runBootstrapChannel runs bootstrapChannel immediately after it is called and
 // then continues to run it periodically until the context is closed.
-func (n *lainnet) runBootstrapChannel(ctx context.Context, interval time.Duration, ch *channel.Channel) {
+func (n *core) runBootstrapChannel(ctx context.Context, interval time.Duration, ch *channel.Channel) {
 	n.bootstrapChannel(ctx, ch)
 
 	ticker := time.NewTicker(interval)
@@ -102,7 +102,7 @@ func (n *lainnet) runBootstrapChannel(ctx context.Context, interval time.Duratio
 
 // bootstrapChannel performs required housekeeping procedures related to being
 // in a channel such as republishing the information about that in the DHT.
-func (n *lainnet) bootstrapChannel(ctx context.Context, ch *channel.Channel) {
+func (n *core) bootstrapChannel(ctx context.Context, ch *channel.Channel) {
 	log.Debugf("bootstrapChannel %s", ch.Name)
 
 	// Republish.
@@ -129,7 +129,7 @@ func (n *lainnet) bootstrapChannel(ctx context.Context, ch *channel.Channel) {
 // handleFindChannelMsg is only responsible for additionally sending a store
 // channel message of the local node. Stored messages are returned on the DHT
 // level.
-func (n *lainnet) handleFindChannelMsg(msg *message.FindChannel, sender node.ID) {
+func (n *core) handleFindChannelMsg(msg *message.FindChannel, sender node.ID) {
 	n.channelsMutex.Lock()
 	defer n.channelsMutex.Unlock()
 
@@ -152,7 +152,7 @@ func (n *lainnet) handleFindChannelMsg(msg *message.FindChannel, sender node.ID)
 
 // handleStoreChannelMsg is only responsible for forwarding of the message to
 // other channel members as the message itself is stored on the DHT level.
-func (n *lainnet) handleStoreChannelMsg(msg *message.StoreChannel, sender node.ID) {
+func (n *core) handleStoreChannelMsg(msg *message.StoreChannel, sender node.ID) {
 	n.channelsMutex.Lock()
 	defer n.channelsMutex.Unlock()
 

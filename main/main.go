@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/boreq/lainnet/cli"
-	"github.com/boreq/lainnet/main/commands"
+	"github.com/boreq/starlight/cli"
+	"github.com/boreq/starlight/main/commands"
 	"os"
 )
 

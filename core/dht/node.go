@@ -3,9 +3,9 @@ package dht
 import (
 	"container/list"
 	"errors"
-	"github.com/boreq/lainnet/network/node"
-	"github.com/boreq/lainnet/protocol/message"
-	"github.com/boreq/lainnet/utils"
+	"github.com/boreq/starlight/network/node"
+	"github.com/boreq/starlight/protocol/message"
+	"github.com/boreq/starlight/utils"
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/context"
 	"sync"

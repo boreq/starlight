@@ -3,7 +3,7 @@ package channel
 import (
 	"container/list"
 	"errors"
-	"github.com/boreq/lainnet/network/node"
+	"github.com/boreq/starlight/network/node"
 	"math/rand"
 	"time"
 )

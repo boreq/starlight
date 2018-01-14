@@ -1,8 +1,8 @@
 package channel
 
 import (
-	"github.com/boreq/lainnet/network/node"
-	"github.com/boreq/lainnet/utils"
+	"github.com/boreq/starlight/network/node"
+	"github.com/boreq/starlight/utils"
 	"sync"
 	"time"
 )

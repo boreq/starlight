@@ -5,8 +5,8 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
-	lcrypto "github.com/boreq/lainnet/crypto"
-	"github.com/boreq/lainnet/utils"
+	lcrypto "github.com/boreq/starlight/crypto"
+	"github.com/boreq/starlight/utils"
 	"io/ioutil"
 	"path"
 )

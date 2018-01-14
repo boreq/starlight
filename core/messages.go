@@ -5,12 +5,12 @@ import (
 	"crypto"
 	"encoding/binary"
 	"errors"
-	"github.com/boreq/lainnet/core/channel"
-	"github.com/boreq/lainnet/core/dht"
-	lcrypto "github.com/boreq/lainnet/crypto"
-	"github.com/boreq/lainnet/network/node"
-	"github.com/boreq/lainnet/protocol/message"
-	"github.com/boreq/lainnet/utils"
+	"github.com/boreq/starlight/core/channel"
+	"github.com/boreq/starlight/core/dht"
+	lcrypto "github.com/boreq/starlight/crypto"
+	"github.com/boreq/starlight/network/node"
+	"github.com/boreq/starlight/protocol/message"
+	"github.com/boreq/starlight/utils"
 	"golang.org/x/net/context"
 	"math"
 	"time"
@@ -21,7 +21,7 @@ import (
 // msgregister.
 const msgRegisterHash = crypto.SHA256
 
-func (n *lainnet) handleChannelMessageMsg(msg *message.ChannelMessage, sender node.NodeInfo) {
+func (n *core) handleChannelMessageMsg(msg *message.ChannelMessage, sender node.NodeInfo) {
 	log.Print(msg)
 
 	// Abort if we are not in the channel.
@@ -83,7 +83,7 @@ func (n *lainnet) handleChannelMessageMsg(msg *message.ChannelMessage, sender no
 	ch.Users.Insert(sender.Id, t)
 }
 
-func (n *lainnet) handlePrivateMessageMsg(msg *message.PrivateMessage, sender node.NodeInfo) {
+func (n *core) handlePrivateMessageMsg(msg *message.PrivateMessage, sender node.NodeInfo) {
 	// Validate.
 	err := n.validatePrivateMessage(msg, sender.Id)
 	if err != nil {
@@ -94,7 +94,7 @@ func (n *lainnet) handlePrivateMessageMsg(msg *message.PrivateMessage, sender no
 	n.disp.Dispatch(sender, msg)
 }
 
-func (n *lainnet) SendChannelMessage(ctx context.Context, channelName string, text string) error {
+func (n *core) SendChannelMessage(ctx context.Context, channelName string, text string) error {
 	if len(text) > maxChannelMessageLength {
 		return errors.New("Message is too long")
 	}
@@ -123,7 +123,7 @@ func (n *lainnet) SendChannelMessage(ctx context.Context, channelName string, te
 	return nil
 }
 
-func (n *lainnet) SendMessage(ctx context.Context, id node.ID, text string) error {
+func (n *core) SendMessage(ctx context.Context, id node.ID, text string) error {
 	if len(text) > maxPrivateMessageLength {
 		return errors.New("Message is too long")
 	}
@@ -141,7 +141,7 @@ func (n *lainnet) SendMessage(ctx context.Context, id node.ID, text string) erro
 
 // createChannelMessage creates a message containing text sent in the specified
 // channel. This function solves the crypto puzzle and signs the message.
-func (n *lainnet) createChannelMessage(channelId []byte, text string) (*message.ChannelMessage, error) {
+func (n *core) createChannelMessage(channelId []byte, text string) (*message.ChannelMessage, error) {
 	// Create the message.
 	var nonce uint64
 	timestamp := time.Now().UTC().Unix()
@@ -174,7 +174,7 @@ func (n *lainnet) createChannelMessage(channelId []byte, text string) (*message.
 
 // createChannelMessage creates a private message. This function solves the
 // crypto puzzle.
-func (n *lainnet) createPrivateMessage(target node.ID, text string) (*message.PrivateMessage, error) {
+func (n *core) createPrivateMessage(target node.ID, text string) (*message.PrivateMessage, error) {
 	// Create the message.
 	var nonce uint64
 	msg := &message.PrivateMessage{
@@ -211,7 +211,7 @@ const maxChannelMessageLength = 500
 // maxPrivateMessageLength is the max length of a private message.
 const maxPrivateMessageLength = 500
 
-func (n *lainnet) validateChannelMessage(ctx context.Context, msg *message.ChannelMessage) error {
+func (n *core) validateChannelMessage(ctx context.Context, msg *message.ChannelMessage) error {
 	// IDs.
 	if !channel.ValidateId(msg.GetChannelId()) {
 		return errors.New("Invalid channel id")
@@ -258,7 +258,7 @@ func (n *lainnet) validateChannelMessage(ctx context.Context, msg *message.Chann
 	return key.Validate(data, msg.GetSignature(), dht.SigningHash)
 }
 
-func (n *lainnet) validatePrivateMessage(msg *message.PrivateMessage, sender node.ID) error {
+func (n *core) validatePrivateMessage(msg *message.PrivateMessage, sender node.ID) error {
 	// IDs.
 	if !node.CompareId(n.ident.Id, msg.GetTargetId()) {
 		return errors.New("Invalid target id")

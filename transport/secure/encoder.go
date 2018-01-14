@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"crypto/cipher"
 	"encoding/binary"
-	"github.com/boreq/lainnet/crypto"
+	"github.com/boreq/starlight/crypto"
 	"hash"
 	"io"
 )

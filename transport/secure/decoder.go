@@ -6,7 +6,7 @@ import (
 	"crypto/hmac"
 	"encoding/binary"
 	"errors"
-	"github.com/boreq/lainnet/crypto"
+	"github.com/boreq/starlight/crypto"
 	"hash"
 	"io"
 )

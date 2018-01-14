@@ -5,7 +5,7 @@ import (
 	"crypto"
 	"crypto/cipher"
 	"crypto/hmac"
-	lcrypto "github.com/boreq/lainnet/crypto"
+	lcrypto "github.com/boreq/starlight/crypto"
 	"hash"
 	"testing"
 )

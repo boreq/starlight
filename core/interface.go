@@ -1,13 +1,13 @@
 package core
 
 import (
-	"github.com/boreq/lainnet/core/dht"
-	"github.com/boreq/lainnet/network/dispatcher"
-	"github.com/boreq/lainnet/network/node"
+	"github.com/boreq/starlight/core/dht"
+	"github.com/boreq/starlight/network/dispatcher"
+	"github.com/boreq/starlight/network/node"
 	"golang.org/x/net/context"
 )
 
-type Lainnet interface {
+type Core interface {
 	// Start starts listening to incoming network connections and
 	// initializes the DHT.
 	Start() error

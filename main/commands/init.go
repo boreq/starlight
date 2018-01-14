@@ -3,10 +3,10 @@ package commands
 import (
 	"errors"
 	"fmt"
-	"github.com/boreq/lainnet/cli"
-	"github.com/boreq/lainnet/config"
-	"github.com/boreq/lainnet/network/node"
-	"github.com/boreq/lainnet/utils"
+	"github.com/boreq/starlight/cli"
+	"github.com/boreq/starlight/config"
+	"github.com/boreq/starlight/network/node"
+	"github.com/boreq/starlight/utils"
 	"os"
 )
 

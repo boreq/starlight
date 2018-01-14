@@ -1,9 +1,9 @@
 package commands
 
 import (
-	"github.com/boreq/lainnet/config"
-	"github.com/boreq/lainnet/local"
-	"github.com/boreq/lainnet/network/node"
+	"github.com/boreq/starlight/config"
+	"github.com/boreq/starlight/local"
+	"github.com/boreq/starlight/network/node"
 	"net/rpc"
 )
 

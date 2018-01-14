@@ -1,7 +1,7 @@
 package channelstore
 
 import (
-	"github.com/boreq/lainnet/protocol/message"
+	"github.com/boreq/starlight/protocol/message"
 	"testing"
 	"time"
 )

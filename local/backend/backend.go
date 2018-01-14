@@ -3,12 +3,12 @@
 package backend
 
 import (
-	"github.com/boreq/lainnet/core"
+	"github.com/boreq/starlight/core"
 )
 
-func NewBackend(lainnet core.Lainnet) *Backend {
+func NewBackend(core core.Core) *Backend {
 	rw := &Backend{
-		lainnet: lainnet,
+		core: core,
 	}
 	return rw
 }
@@ -16,5 +16,5 @@ func NewBackend(lainnet core.Lainnet) *Backend {
 // Backend is an object which is registered on an RPC object and is used to
 // execute commands on a running daemon.
 type Backend struct {
-	lainnet core.Lainnet
+	core core.Core
 }

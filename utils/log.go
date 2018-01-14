@@ -42,7 +42,7 @@ func (l *logger) Debugf(format string, v ...interface{}) {
 // The name of the environment variable which enables displaying debug level log
 // messages. To do that this environment variable can be set to any value but
 // an empty string.
-const DebugEnvVar = "LAINNETDEBUG"
+const DebugEnvVar = "STARLIGHTDEBUG"
 
 var debug bool
 var loggers map[string]Logger

@@ -3,12 +3,16 @@ package config
 import (
 	"encoding/json"
 	"errors"
-	"github.com/boreq/lainnet/network/node"
+	"github.com/boreq/starlight/network/node"
 	"io/ioutil"
 	"os"
 	"os/user"
 	"path"
 )
+
+// The name of the environment variable which specifies the location of the
+// config directory.
+const ConfigEnvVar = "STARLIGHTPATH"
 
 // This part of the config structure is saved in the config file in JSON format.
 type savedConfig struct {
@@ -56,13 +60,13 @@ func Get() (*Config, error) {
 // Returns the directory in which config and data should be saved.
 func GetDir() string {
 	// Overriden by env variable
-	if envDir := os.Getenv("NETBLOGPATH"); envDir != "" {
+	if envDir := os.Getenv(ConfigEnvVar); envDir != "" {
 		return envDir
 	}
 
 	// Default directory in $HOME
 	user, _ := user.Current()
-	return path.Join(user.HomeDir, ".netblog")
+	return path.Join(user.HomeDir, ".starlight")
 }
 
 func getDefaultBootstrap() []node.NodeInfo {

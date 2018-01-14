@@ -2,7 +2,7 @@ package irc
 
 import (
 	"fmt"
-	"github.com/boreq/lainnet/irc/protocol"
+	"github.com/boreq/starlight/irc/protocol"
 	"golang.org/x/net/context"
 )
 
@@ -16,7 +16,7 @@ func (s *Server) makeServerReply(code protocol.Numeric, params []string) *protoc
 // makeServerMessage creates a message originating from the server.
 func (s *Server) makeServerMessage(command string, params []string) *protocol.Message {
 	return &protocol.Message{
-		Prefix:  "lainnet",
+		Prefix:  "starlight",
 		Command: command,
 		Params:  params,
 	}
@@ -25,7 +25,7 @@ func (s *Server) makeServerMessage(command string, params []string) *protocol.Me
 // makeUserMessage creates a command message originating from the local user.
 func (s *Server) makeUserMessage(nick string, command string, params []string) *protocol.Message {
 	return &protocol.Message{
-		Prefix:  fmt.Sprintf("%s@%s.wired", nick, s.lainnet.Identity().Id),
+		Prefix:  fmt.Sprintf("%s@%s.wired", nick, s.core.Identity().Id),
 		Command: command,
 		Params:  params,
 	}

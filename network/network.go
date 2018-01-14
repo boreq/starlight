@@ -2,10 +2,10 @@ package network
 
 import (
 	"errors"
-	"github.com/boreq/lainnet/network/dispatcher"
-	"github.com/boreq/lainnet/network/node"
-	"github.com/boreq/lainnet/network/peer"
-	"github.com/boreq/lainnet/utils"
+	"github.com/boreq/starlight/network/dispatcher"
+	"github.com/boreq/starlight/network/node"
+	"github.com/boreq/starlight/network/peer"
+	"github.com/boreq/starlight/utils"
 	"golang.org/x/net/context"
 	"net"
 	"reflect"

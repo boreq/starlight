@@ -2,7 +2,7 @@ package irc
 
 import (
 	"errors"
-	"github.com/boreq/lainnet/irc/protocol"
+	"github.com/boreq/starlight/irc/protocol"
 	"golang.org/x/net/context"
 	"net"
 )

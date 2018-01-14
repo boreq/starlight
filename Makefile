@@ -7,7 +7,7 @@ run:
 	./main/main
 
 doc:
-	@echo "http://localhost:6060/pkg/github.com/boreq/lainnet/"
+	@echo "http://localhost:6060/pkg/github.com/boreq/starlight/"
 	godoc -http=:6060
 
 test:

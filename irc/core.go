@@ -2,17 +2,17 @@ package irc
 
 import (
 	"fmt"
-	"github.com/boreq/lainnet/irc/protocol"
-	"github.com/boreq/lainnet/network/dispatcher"
-	"github.com/boreq/lainnet/network/node"
-	"github.com/boreq/lainnet/protocol/message"
+	"github.com/boreq/starlight/irc/protocol"
+	"github.com/boreq/starlight/network/dispatcher"
+	"github.com/boreq/starlight/network/node"
+	"github.com/boreq/starlight/protocol/message"
 	"golang.org/x/net/context"
 )
 
 // receiveMessages subscribes to incoming messages and runs a loop which
 // processes them until the context is closed.
 func (s *Server) receiveMessages(ctx context.Context) {
-	c, cancel := s.lainnet.Subscribe()
+	c, cancel := s.core.Subscribe()
 	defer cancel()
 	for {
 		select {

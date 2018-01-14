@@ -1,12 +1,12 @@
 package peer
 
 import (
-	"github.com/boreq/lainnet/crypto"
-	"github.com/boreq/lainnet/network/node"
-	"github.com/boreq/lainnet/protocol"
-	"github.com/boreq/lainnet/transport"
-	"github.com/boreq/lainnet/transport/basic"
-	"github.com/boreq/lainnet/utils"
+	"github.com/boreq/starlight/crypto"
+	"github.com/boreq/starlight/network/node"
+	"github.com/boreq/starlight/protocol"
+	"github.com/boreq/starlight/transport"
+	"github.com/boreq/starlight/transport/basic"
+	"github.com/boreq/starlight/utils"
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/context"
 	"net"

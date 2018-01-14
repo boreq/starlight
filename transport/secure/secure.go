@@ -9,8 +9,8 @@ package secure
 
 import (
 	"crypto/cipher"
-	"github.com/boreq/lainnet/transport"
-	"github.com/boreq/lainnet/utils"
+	"github.com/boreq/starlight/transport"
+	"github.com/boreq/starlight/utils"
 	"hash"
 	"io"
 )

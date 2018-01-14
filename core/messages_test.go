@@ -2,7 +2,7 @@ package core
 
 import (
 	"fmt"
-	"github.com/boreq/lainnet/protocol/message"
+	"github.com/boreq/starlight/protocol/message"
 	"testing"
 )
 

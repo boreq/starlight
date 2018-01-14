@@ -12,8 +12,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"github.com/boreq/lainnet/transport"
-	"github.com/boreq/lainnet/utils"
+	"github.com/boreq/starlight/transport"
+	"github.com/boreq/starlight/utils"
 	"io"
 	"math"
 )

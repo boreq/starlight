@@ -1,15 +1,15 @@
 // Package irc implements an IRC server. That server supports only a certain
 // subset of the functionality of the IRC protocol and allows the IRC clients
-// to be used to communicate via the lainnet network.
+// to be used to communicate via the new network.
 package irc
 
 import (
 	"container/list"
 	"fmt"
-	"github.com/boreq/lainnet/core"
-	"github.com/boreq/lainnet/irc/protocol"
-	"github.com/boreq/lainnet/network/node"
-	"github.com/boreq/lainnet/utils"
+	"github.com/boreq/starlight/core"
+	"github.com/boreq/starlight/irc/protocol"
+	"github.com/boreq/starlight/network/node"
+	"github.com/boreq/starlight/utils"
 	"golang.org/x/net/context"
 	"net"
 	"strings"
@@ -19,29 +19,29 @@ import (
 
 var log = utils.GetLogger("irc")
 
-// NewServer creates a new IRC server which interfaces with the provided lainnet
+// NewServer creates a new IRC server which interfaces with the provided core
 // instance.
-func NewServer(lainnet core.Lainnet) *Server {
+func NewServer(core core.Core) *Server {
 	rv := &Server{
-		lainnet: lainnet,
+		core: core,
 	}
 	return rv
 }
 
-// Server interfaces Lainnet with the standard IRC clients by creating a local
+// Server interfaces Core with the standard IRC clients by creating a local
 // IRC server. Use the NewServer function to create this structure.
 type Server struct {
 	// Since the nick is the same for all connected clients as they are
-	// represented by a single lainnet ID the common nick is stored in this
+	// represented by a single ID the common nick is stored in this
 	// variable.
 	nick       string
 	users      list.List
-	lainnet    core.Lainnet
+	core       core.Core
 	usersMutex sync.Mutex
 }
 
 // Start starts listening to connections from IRC clients on addr and receiving
-// messages from the underlying Lainnet instance. The function will return
+// messages from the underlying Core instance. The function will return
 // if the server will be started correctly and will not block.
 func (s *Server) Start(ctx context.Context, addr string) error {
 	log.Printf("Listening on %s", addr)
@@ -52,7 +52,7 @@ func (s *Server) Start(ctx context.Context, addr string) error {
 		return err
 	}
 
-	// Subscribe to messages incoming via lainnet.
+	// Subscribe to messages incoming via Core.
 	go s.receiveMessages(ctx)
 
 	// Accept the connections to the IRC server.
@@ -145,7 +145,7 @@ func (s *Server) handlerNick(ctx context.Context, user *User, msg *protocol.Mess
 		s.sendWelcome(ctx, user)
 		s.sendMotd(ctx, user)
 		// Inform the user about the joined channels.
-		for _, chName := range s.lainnet.ListChannels() {
+		for _, chName := range s.core.ListChannels() {
 			join := s.makeUserMessage(s.nick, "JOIN", []string{chName})
 			user.Send(ctx, join)
 		}
@@ -158,7 +158,7 @@ func (s *Server) handlerPrivmsg(ctx context.Context, user *User, msg *protocol.M
 
 	if protocol.IsChannelName(msg.Params[0]) {
 		// Send a channel message.
-		err := s.lainnet.SendChannelMessage(ctx, msg.Params[0], msg.Params[1])
+		err := s.core.SendChannelMessage(ctx, msg.Params[0], msg.Params[1])
 		if err != nil {
 			// Inform the client about an error.
 			eMsg := s.makeServerMessage("NOTICE", []string{msg.Params[0], "Error: " + err.Error()})
@@ -182,7 +182,7 @@ func (s *Server) handlerPrivmsg(ctx context.Context, user *User, msg *protocol.M
 			}
 			user.Send(ctx, eMsg)
 		} else {
-			err := s.lainnet.SendMessage(ctx, target, msg.Params[1])
+			err := s.core.SendMessage(ctx, target, msg.Params[1])
 			if err != nil {
 				// Inform the client about the error.
 				eMsg := &protocol.Message{
@@ -209,7 +209,7 @@ func (s *Server) handlerJoin(ctx context.Context, user *User, msg *protocol.Mess
 	}
 
 	channelName := msg.Params[0]
-	err := s.lainnet.JoinChannel(channelName)
+	err := s.core.JoinChannel(channelName)
 	if err == nil {
 		s.usersMutex.Lock()
 		defer s.usersMutex.Unlock()
@@ -228,20 +228,20 @@ func (s *Server) sendWelcome(ctx context.Context, user *User) {
 
 // sendMotd sends the message of the day to the specified user.
 func (s *Server) sendMotd(ctx context.Context, user *User) {
-	motd := `This IRC server is merely an interface to the Lainnet network and implements
+	motd := `This IRC server is merely an interface to the Starlight network and implements
 only basic functionality of the IRC protocol. All clients connected to this
 server share the same nickname, receive the same messages and are in the same
-channels - they are all considered to be the same Lainnet user interfacing with
-the underlying Lainnet node.
+channels - they are all considered to be the same Starlight user interfacing with
+the underlying Starlight node.
 
 Supported functionality:
     1. JOIN
-        The JOIN command can be used to subscribe to Lainnet channels.
+        The JOIN command can be used to subscribe to Starlight channels.
     2. PART
-        The PART command can be used to unsubscribe from Lainnet channels.
+        The PART command can be used to unsubscribe from Starlight channels.
     3. PRIVMSG
-        The PRIVMSG can be used to send messages directly to other Lainnet
-        nodes as well as to send messages in the Lainnet channels which were
+        The PRIVMSG can be used to send messages directly to other Starlight
+        nodes as well as to send messages in the Starlight channels which were
         previously joined using the JOIN command.`
 
 	motdStart := s.makeServerReply(protocol.RPL_MOTDSTART,

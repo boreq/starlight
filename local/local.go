@@ -4,9 +4,9 @@ package local
 
 import (
 	"fmt"
-	"github.com/boreq/lainnet/core"
-	"github.com/boreq/lainnet/local/backend"
-	"github.com/boreq/lainnet/network/node"
+	"github.com/boreq/starlight/core"
+	"github.com/boreq/starlight/local/backend"
+	"github.com/boreq/starlight/network/node"
 	"net"
 	"net/http"
 	"net/rpc"
@@ -14,8 +14,8 @@ import (
 
 // RunServer runs a RPC server on a unix domain socket. The socket file will not
 // be removed after the listener closes.
-func RunServer(lainnet core.Lainnet, address string) error {
-	bend := backend.NewBackend(lainnet)
+func RunServer(core core.Core, address string) error {
+	bend := backend.NewBackend(core)
 	err := rpc.Register(bend)
 	if err != nil {
 		return err
@@ -37,5 +37,5 @@ func Dial(address string) (*rpc.Client, error) {
 
 // GetAddress returns an address of a RPC server for the provided node id.
 func GetAddress(localId node.ID) string {
-	return fmt.Sprintf("/tmp/lainnet_%s.socket", localId)
+	return fmt.Sprintf("/tmp/starlight_%s.socket", localId)
 }

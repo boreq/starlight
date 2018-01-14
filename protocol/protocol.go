@@ -5,8 +5,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"github.com/boreq/lainnet/protocol/message"
-	"github.com/boreq/lainnet/utils"
+	"github.com/boreq/starlight/protocol/message"
+	"github.com/boreq/starlight/utils"
 	"github.com/golang/protobuf/proto"
 )
 

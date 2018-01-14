@@ -1,24 +1,24 @@
 package core
 
 import (
-	"github.com/boreq/lainnet/config"
-	"github.com/boreq/lainnet/core/channel"
-	"github.com/boreq/lainnet/core/dht"
-	"github.com/boreq/lainnet/core/msgregister"
-	"github.com/boreq/lainnet/network"
-	"github.com/boreq/lainnet/network/dispatcher"
-	"github.com/boreq/lainnet/network/node"
-	"github.com/boreq/lainnet/protocol/message"
-	"github.com/boreq/lainnet/utils"
+	"github.com/boreq/starlight/config"
+	"github.com/boreq/starlight/core/channel"
+	"github.com/boreq/starlight/core/dht"
+	"github.com/boreq/starlight/core/msgregister"
+	"github.com/boreq/starlight/network"
+	"github.com/boreq/starlight/network/dispatcher"
+	"github.com/boreq/starlight/network/node"
+	"github.com/boreq/starlight/protocol/message"
+	"github.com/boreq/starlight/utils"
 	"golang.org/x/net/context"
 	"sync"
 )
 
-var log = utils.GetLogger("lainnet")
+var log = utils.GetLogger("core")
 
-func NewLainnet(ctx context.Context, ident node.Identity, config *config.Config) Lainnet {
+func NewCore(ctx context.Context, ident node.Identity, config *config.Config) Core {
 	net := network.New(ctx, ident, config.ListenAddress)
-	rv := &lainnet{
+	rv := &core{
 		config:      config,
 		ident:       ident,
 		net:         net,
@@ -30,7 +30,7 @@ func NewLainnet(ctx context.Context, ident node.Identity, config *config.Config)
 	return rv
 }
 
-type lainnet struct {
+type core struct {
 	config        *config.Config
 	ident         node.Identity
 	net           network.Network
@@ -42,15 +42,15 @@ type lainnet struct {
 	ctx           context.Context
 }
 
-func (n *lainnet) Identity() node.Identity {
+func (n *core) Identity() node.Identity {
 	return n.ident
 }
 
-func (n *lainnet) Dht() dht.DHT {
+func (n *core) Dht() dht.DHT {
 	return n.dht
 }
 
-func (n *lainnet) Start() error {
+func (n *core) Start() error {
 	go func() {
 		c, cancel := n.dht.Subscribe()
 		defer cancel()
@@ -77,12 +77,12 @@ func (n *lainnet) Start() error {
 	return nil
 }
 
-func (n *lainnet) Subscribe() (chan dispatcher.IncomingMessage, dispatcher.CancelFunc) {
+func (n *core) Subscribe() (chan dispatcher.IncomingMessage, dispatcher.CancelFunc) {
 	return n.disp.Subscribe()
 }
 
 // handleMessage handles the incoming messages.
-func (n *lainnet) handleMessage(msg dispatcher.IncomingMessage) error {
+func (n *core) handleMessage(msg dispatcher.IncomingMessage) error {
 	switch pMsg := msg.Message.(type) {
 
 	case *message.PrivateMessage:

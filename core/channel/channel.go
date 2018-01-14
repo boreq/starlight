@@ -3,7 +3,7 @@
 package channel
 
 import (
-	"github.com/boreq/lainnet/network/node"
+	"github.com/boreq/starlight/network/node"
 	"golang.org/x/net/context"
 )
 

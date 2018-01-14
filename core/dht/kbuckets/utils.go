@@ -1,7 +1,7 @@
 package kbuckets
 
 import (
-	"github.com/boreq/lainnet/network/node"
+	"github.com/boreq/starlight/network/node"
 )
 
 // randomId creates a random id which has the same length as the provided id

@@ -1,12 +1,12 @@
 package commands
 
 import (
-	"github.com/boreq/lainnet/cli"
-	"github.com/boreq/lainnet/config"
-	"github.com/boreq/lainnet/core"
-	"github.com/boreq/lainnet/irc"
-	"github.com/boreq/lainnet/local"
-	"github.com/boreq/lainnet/network/node"
+	"github.com/boreq/starlight/cli"
+	"github.com/boreq/starlight/config"
+	"github.com/boreq/starlight/core"
+	"github.com/boreq/starlight/irc"
+	"github.com/boreq/starlight/local"
+	"github.com/boreq/starlight/network/node"
 	"golang.org/x/net/context"
 	"os"
 )
@@ -31,8 +31,8 @@ func daemon(c cli.Context) error {
 	defer cancel()
 
 	// Connect to the wired
-	lainnet := core.NewLainnet(ctx, *iden, conf)
-	err = lainnet.Start()
+	core := core.NewCore(ctx, *iden, conf)
+	err = core.Start()
 	if err != nil {
 		return err
 	}
@@ -44,13 +44,13 @@ func daemon(c cli.Context) error {
 		return err
 	}
 	defer os.Remove(address)
-	err = local.RunServer(lainnet, address)
+	err = local.RunServer(core, address)
 	if err != nil {
 		return err
 	}
 
 	// Run the local IRC gateway
-	ircSrv := irc.NewServer(lainnet)
+	ircSrv := irc.NewServer(core)
 	err = ircSrv.Start(ctx, conf.IRCGatewayAddress)
 	if err != nil {
 		return err

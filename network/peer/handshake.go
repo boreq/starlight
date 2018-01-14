@@ -6,12 +6,12 @@ import (
 	"crypto/hmac"
 	"encoding/binary"
 	"errors"
-	"github.com/boreq/lainnet/crypto"
-	"github.com/boreq/lainnet/network/node"
-	"github.com/boreq/lainnet/protocol/message"
-	"github.com/boreq/lainnet/transport"
-	"github.com/boreq/lainnet/transport/secure"
-	"github.com/boreq/lainnet/utils"
+	"github.com/boreq/starlight/crypto"
+	"github.com/boreq/starlight/network/node"
+	"github.com/boreq/starlight/protocol/message"
+	"github.com/boreq/starlight/transport"
+	"github.com/boreq/starlight/transport/secure"
+	"github.com/boreq/starlight/utils"
 	"golang.org/x/net/context"
 	"strings"
 )
@@ -238,7 +238,7 @@ func (p *peer) handshake(ctx context.Context, iden node.Identity) error {
 	}
 
 	// Form ConfirmHandshake message.
-	sig, err := iden.PrivKey.Sign(remoteInit.GetNonce(), hash)
+	sig, err := iden.PrivKey.Sign(remoteInit.GetNonce(), hash) // TODO THIS IS A SERIOUS SECURITY BUG
 	if err != nil {
 		return err
 	}

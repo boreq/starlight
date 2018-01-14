@@ -1,7 +1,7 @@
 package backend
 
 import (
-	"github.com/boreq/lainnet/network/node"
+	"github.com/boreq/starlight/network/node"
 	"golang.org/x/net/context"
 )
 
@@ -16,7 +16,7 @@ func (b *Backend) Ping(args *PingArgs, latency *float64) error {
 		return err
 	}
 
-	duration, err := b.lainnet.Dht().Ping(context.TODO(), id)
+	duration, err := b.core.Dht().Ping(context.TODO(), id)
 	if err != nil {
 		return err
 	}

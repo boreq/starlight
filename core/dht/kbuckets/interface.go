@@ -1,7 +1,7 @@
 package kbuckets
 
 import (
-	"github.com/boreq/lainnet/network/node"
+	"github.com/boreq/starlight/network/node"
 )
 
 type RoutingTable interface {

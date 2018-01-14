@@ -2,7 +2,7 @@ package node
 
 import (
 	"fmt"
-	"github.com/boreq/lainnet/crypto"
+	"github.com/boreq/starlight/crypto"
 	"testing"
 )
 
