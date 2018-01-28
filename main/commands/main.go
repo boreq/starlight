@@ -22,7 +22,7 @@ var MainCmd = cli.Command{
 		"identity": &identityCmd,
 		"ping":     &pingCmd,
 	},
-	ShortDescription: "distributed blogging platform",
-	Description: `Main command decription.
-Second line.`,
+	ShortDescription: "distributed chat network",
+	Description: `Starlight is a distributed chat network inspired by the functionality of the
+Internet Relay Chat.`,
 }
