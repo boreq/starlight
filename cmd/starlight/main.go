@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/boreq/starlight/cli"
-	"github.com/boreq/starlight/main/commands"
+	"github.com/boreq/starlight/cmd/starlight/commands"
 	"os"
 )
 

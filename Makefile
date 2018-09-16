@@ -1,10 +1,8 @@
 all: build
 
 build:
-	go build -o ./main/main ./main
-
-run:
-	./main/main
+	mkdir -p _build
+	go build -o ./_build/starlight ./cmd/starlight
 
 doc:
 	@echo "http://localhost:6060/pkg/github.com/boreq/starlight/"
@@ -28,4 +26,4 @@ proto:
 clean:
 	rm -f ./main/main
 
-.PHONY: all build run doc test test-verbose test-short bench proto clean
+.PHONY: all build doc test test-verbose test-short bench proto clean
