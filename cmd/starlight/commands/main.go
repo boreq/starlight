@@ -1,22 +1,24 @@
 package commands
 
-import "github.com/boreq/starlight/cli"
+import (
+	"github.com/boreq/guinea"
+)
 
-var MainCmd = cli.Command{
-	Options: []cli.Option{
-		cli.Option{
+var MainCmd = guinea.Command{
+	Options: []guinea.Option{
+		guinea.Option{
 			Name:        "version",
-			Type:        cli.Bool,
+			Type:        guinea.Bool,
 			Description: "Display version",
 		},
 	},
-	Run: func(c cli.Context) error {
+	Run: func(c guinea.Context) error {
 		if c.Options["version"].Bool() {
 			return nil
 		}
-		return cli.ErrInvalidParms
+		return guinea.ErrInvalidParms
 	},
-	Subcommands: map[string]*cli.Command{
+	Subcommands: map[string]*guinea.Command{
 		"daemon":   &daemonCmd,
 		"init":     &initCmd,
 		"identity": &identityCmd,

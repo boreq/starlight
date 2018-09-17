@@ -1,7 +1,7 @@
 package commands
 
 import (
-	"github.com/boreq/starlight/cli"
+	"github.com/boreq/guinea"
 	"github.com/boreq/starlight/config"
 	"github.com/boreq/starlight/core"
 	"github.com/boreq/starlight/irc"
@@ -11,12 +11,12 @@ import (
 	"os"
 )
 
-var daemonCmd = cli.Command{
+var daemonCmd = guinea.Command{
 	Run:              daemon,
 	ShortDescription: "runs a daemon",
 }
 
-func daemon(c cli.Context) error {
+func daemon(c guinea.Context) error {
 	conf, err := config.Get()
 	if err != nil {
 		return err

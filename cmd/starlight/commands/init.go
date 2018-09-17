@@ -3,7 +3,7 @@ package commands
 import (
 	"errors"
 	"fmt"
-	"github.com/boreq/starlight/cli"
+	"github.com/boreq/guinea"
 	"github.com/boreq/starlight/config"
 	"github.com/boreq/starlight/network/node"
 	"github.com/boreq/starlight/utils"
@@ -12,16 +12,16 @@ import (
 
 const defaultKeypairBits = 4096
 
-var initCmd = cli.Command{
-	Options: []cli.Option{
-		cli.Option{
+var initCmd = guinea.Command{
+	Options: []guinea.Option{
+		guinea.Option{
 			Name:        "f",
-			Type:        cli.Bool,
+			Type:        guinea.Bool,
 			Description: "Overwrite existing config",
 		},
-		cli.Option{
+		guinea.Option{
 			Name:        "b",
-			Type:        cli.Int,
+			Type:        guinea.Int,
 			Default:     defaultKeypairBits,
 			Description: fmt.Sprintf("Number of bits in the generated RSA key (default %d)", defaultKeypairBits),
 		},
@@ -33,7 +33,7 @@ Creates a new config file with default configuration values and generates a new
 keypair.`,
 }
 
-func runInit(c cli.Context) error {
+func runInit(c guinea.Context) error {
 	if !c.Options["f"].Bool() {
 		_, err := os.Stat(config.GetDir())
 		if err == nil || !os.IsNotExist(err) {

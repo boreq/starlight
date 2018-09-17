@@ -2,13 +2,13 @@ package commands
 
 import (
 	"fmt"
-	"github.com/boreq/starlight/cli"
+	"github.com/boreq/guinea"
 	"github.com/boreq/starlight/local/backend"
 	"time"
 )
 
-var pingCmd = cli.Command{
-	Arguments: []cli.Argument{
+var pingCmd = guinea.Command{
+	Arguments: []guinea.Argument{
 		{"id", false, "node to ping"},
 	},
 	Run:              runPing,
@@ -18,7 +18,7 @@ Finds an address the node and sends ping messages to measure the network
 latency.`,
 }
 
-func runPing(c cli.Context) error {
+func runPing(c guinea.Context) error {
 	client, err := GetClient()
 	if err != nil {
 		return err
