@@ -237,8 +237,25 @@ func (p *peer) handshake(ctx context.Context, iden node.Identity) error {
 		return err
 	}
 
+	// Create values to be signed.
+	valueToSign := bytes.Buffer{}
+	if order > 0 {
+		valueToSign.Write(localInit.GetNonce())
+		valueToSign.Write(localInit.GetPubKey())
+		valueToSign.Write(remoteInit.GetNonce())
+		valueToSign.Write(remoteInit.GetPubKey())
+	} else {
+		valueToSign.Write(remoteInit.GetNonce())
+		valueToSign.Write(remoteInit.GetPubKey())
+		valueToSign.Write(localInit.GetNonce())
+		valueToSign.Write(localInit.GetPubKey())
+	}
+	valueToSign.WriteString(selectedCurve)
+	valueToSign.WriteString(selectedHash)
+	valueToSign.WriteString(selectedCipher)
+
 	// Form ConfirmHandshake message.
-	sig, err := iden.PrivKey.Sign(remoteInit.GetNonce(), hash) // TODO THIS IS A SERIOUS SECURITY BUG
+	sig, err := iden.PrivKey.Sign(valueToSign.Bytes(), hash)
 	if err != nil {
 		return err
 	}
@@ -269,7 +286,7 @@ func (p *peer) handshake(ctx context.Context, iden node.Identity) error {
 	//
 
 	// Confirm identity.
-	err = remotePub.Validate(localNonce, remoteConfirm.GetSignature(), hash)
+	err = remotePub.Validate(valueToSign.Bytes(), remoteConfirm.GetSignature(), hash)
 	if err != nil {
 		return err
 	}
