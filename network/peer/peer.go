@@ -10,7 +10,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/context"
 	"net"
-	"reflect"
 	"sync"
 	"time"
 )
@@ -98,7 +97,7 @@ func (p *peer) Close() {
 }
 
 func (p *peer) Send(msg proto.Message) error {
-	log.Debugf("%s sending %s", p.id, reflect.TypeOf(msg))
+	log.Debugf("%s sending %T", p.id, msg)
 	data, err := protocol.Encode(msg)
 	if err != nil {
 		return err
@@ -119,7 +118,7 @@ func (p *peer) send(data []byte) error {
 }
 
 func (p *peer) SendWithContext(ctx context.Context, msg proto.Message) error {
-	log.Debugf("%s sending with context %s", p.id, reflect.TypeOf(msg))
+	log.Debugf("%s sending with context %T", p.id, msg)
 	data, err := protocol.Encode(msg)
 	if err != nil {
 		return err
