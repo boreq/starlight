@@ -98,7 +98,7 @@ func (p *peer) Close() {
 }
 
 func (p *peer) Send(msg proto.Message) error {
-	log.Debugf("%s sending %s: %s", p.id, reflect.TypeOf(msg), msg)
+	log.Debugf("%s sending %s", p.id, reflect.TypeOf(msg))
 	data, err := protocol.Encode(msg)
 	if err != nil {
 		return err
@@ -119,7 +119,7 @@ func (p *peer) send(data []byte) error {
 }
 
 func (p *peer) SendWithContext(ctx context.Context, msg proto.Message) error {
-	log.Debugf("%s sending %s: %s", p.id, reflect.TypeOf(msg), msg)
+	log.Debugf("%s sending with context %s", p.id, reflect.TypeOf(msg))
 	data, err := protocol.Encode(msg)
 	if err != nil {
 		return err
