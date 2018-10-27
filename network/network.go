@@ -8,7 +8,6 @@ import (
 	"github.com/boreq/starlight/utils"
 	"golang.org/x/net/context"
 	"net"
-	"reflect"
 	"sync"
 	"time"
 )
@@ -94,7 +93,7 @@ func (n *network) newConnection(ctx context.Context, conn net.Conn) (peer.Peer, 
 	go func() {
 		for {
 			msg, err := p.ReceiveWithContext(n.ctx)
-			log.Debugf("%s received %s: %s", p.Info().Id, reflect.TypeOf(msg), msg)
+			log.Debugf("%s received %T", p.Info().Id, msg)
 			if err != nil && p.Closed() {
 				log.Debugf("%s error %s, stopping the dispatcher loop", p.Info().Id, err)
 				return
