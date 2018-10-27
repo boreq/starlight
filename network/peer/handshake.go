@@ -12,6 +12,7 @@ import (
 	"github.com/boreq/starlight/transport"
 	"github.com/boreq/starlight/transport/secure"
 	"github.com/boreq/starlight/utils"
+	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/context"
 	"strings"
 )
@@ -61,6 +62,53 @@ func newSecure(localKeys, remoteKeys crypto.StretchedKeys, localNonce, remoteNon
 // to prevent replay attacks, this value must be equal or higher than 32/8=4.
 const nonceSize = 20
 
+// sendAsyncWithContext prevents a deadlock when mutually exchanging
+// synchronous messages with another node. For example during a handshake we
+// want to send a message but at the same time receive an incoming message so
+// the message must be send at the same time as we are waiting to receive the
+// incomming message. As the messages are small this could work due to OS
+// buffering and the way the network stack works but it is a dangerous gamble.
+func (p *peer) sendAsyncWithContext(ctx context.Context, msg proto.Message) <-chan error {
+	errC := make(chan error)
+	go func() {
+		err := p.SendWithContext(ctx, msg)
+		if err != nil {
+			errC <- err
+		}
+	}()
+	return errC
+}
+
+// receiveAsyncWithContext is a conterpart of sendAsyncWithContext which makes
+// it easy to perform receive and send operations at the same time by using a
+// select on their results.
+func (p *peer) receiveAsyncWithContext(ctx context.Context) (<-chan proto.Message, <-chan error) {
+	errC := make(chan error)
+	msgC := make(chan proto.Message)
+	go func() {
+		msg, err := p.ReceiveWithContext(ctx)
+		if err != nil {
+			errC <- err
+			return
+		}
+		msgC <- msg
+	}()
+	return msgC, errC
+}
+
+func (p *peer) exchangeMessages(ctx context.Context, msg proto.Message) (proto.Message, error) {
+	sendErrC := p.sendAsyncWithContext(ctx, msg)
+	msgC, recErrC := p.receiveAsyncWithContext(ctx)
+	select {
+	case err := <-sendErrC:
+		return nil, err
+	case err := <-recErrC:
+		return nil, err
+	case msg := <-msgC:
+		return msg, nil
+	}
+}
+
 // The ride never ends. Performs a handshake, sets up a secure encoder and peer
 // id.
 func (p *peer) handshake(ctx context.Context, iden node.Identity) error {
@@ -89,14 +137,8 @@ func (p *peer) handshake(ctx context.Context, iden node.Identity) error {
 		SupportedCiphers: &crypto.SupportedCiphers,
 	}
 
-	// Send Init message.
-	err = p.SendWithContext(ctx, localInit)
-	if err != nil {
-		return err
-	}
-
-	// Receive Init message.
-	msg, err := p.ReceiveWithContext(ctx)
+	// Exchange Init messages.
+	msg, err := p.exchangeMessages(ctx, localInit)
 	if err != nil {
 		return err
 	}
@@ -172,14 +214,8 @@ func (p *peer) handshake(ctx context.Context, iden node.Identity) error {
 		EphemeralPubKey: localEphemeralKeyBytes,
 	}
 
-	// Send Handshake message.
-	err = p.SendWithContext(ctx, localHandshake)
-	if err != nil {
-		return err
-	}
-
-	// Receive Handshake message.
-	msg, err = p.ReceiveWithContext(ctx)
+	// Exchange Handshake messages.
+	msg, err = p.exchangeMessages(ctx, localHandshake)
 	if err != nil {
 		return err
 	}
@@ -265,14 +301,8 @@ func (p *peer) handshake(ctx context.Context, iden node.Identity) error {
 		Signature: sig,
 	}
 
-	// Send ConfirmHandshake message.
-	err = p.SendWithContext(ctx, localConfirm)
-	if err != nil {
-		return err
-	}
-
-	// Receive ConfirmHandshake message.
-	msg, err = p.ReceiveWithContext(ctx)
+	// Exchange ConfirmHandshake messages.
+	msg, err = p.exchangeMessages(ctx, localConfirm)
 	if err != nil {
 		return err
 	}
@@ -312,14 +342,8 @@ func (p *peer) identify(ctx context.Context, listenAddr string) error {
 		ConnectionAddress: &remoteAddr,
 	}
 
-	// Send Identity message.
-	err := p.SendWithContext(ctx, localIdentify)
-	if err != nil {
-		return err
-	}
-
-	// Receive Identity message.
-	msg, err := p.ReceiveWithContext(ctx)
+	// Exchange Identity messages.
+	msg, err := p.exchangeMessages(ctx, localIdentify)
 	if err != nil {
 		return err
 	}
