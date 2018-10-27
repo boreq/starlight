@@ -28,10 +28,11 @@ type decoder struct {
 
 func (d *decoder) decode(r io.Reader, w io.Writer) error {
 	data := &bytes.Buffer{}
-	_, err := data.ReadFrom(r)
+	n, err := data.ReadFrom(r)
 	if err != nil {
 		return err
 	}
+	log.Debugf("received %d bytes", n)
 
 	// Check HMAC
 	if data.Len() < d.hmac.Size() {
@@ -75,6 +76,5 @@ func (d *decoder) decode(r io.Reader, w io.Writer) error {
 	if err != nil {
 		return err
 	}
-
 	return nil
 }

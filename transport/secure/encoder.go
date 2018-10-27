@@ -51,10 +51,10 @@ func (e *encoder) encode(r io.Reader, w io.Writer) error {
 	buf.Reset()
 	buf.Write(hm)
 	buf.Write(data)
-	_, err = buf.WriteTo(w)
+	n, err := buf.WriteTo(w)
 	if err != nil {
 		return err
 	}
-	log.Debugf("written %d bytes", buf.Len())
+	log.Debugf("written %d bytes", n)
 	return nil
 }

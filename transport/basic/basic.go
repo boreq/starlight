@@ -46,11 +46,11 @@ func (b *basic) Encode(r io.Reader, w io.Writer) error {
 	}
 
 	// Write the data
-	_, err = io.Copy(w, buf)
+	n, err := io.Copy(w, buf)
 	if err != nil {
 		return err
 	}
-	log.Debugf("written %d bytes", buf.Len())
+	log.Debugf("written %d bytes", n+sizeHeaderLen)
 	return nil
 }
 
