@@ -6,6 +6,8 @@ build:
 
 doc:
 	@echo "http://localhost:6060/pkg/github.com/boreq/starlight/"
+	@echo "In order to display unexported declarations append ?m=all to an url after"
+	@echo "opening docs for a specific package."
 	godoc -http=:6060
 
 test:
