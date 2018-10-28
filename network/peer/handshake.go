@@ -175,6 +175,9 @@ func (p *peer) handshake(ctx context.Context, iden node.Identity) error {
 	var selectedCurve, selectedHash, selectedCipher string
 	// We need everything to be perfomed the same way on both sides.
 	order, err := utils.Compare(iden.Id, remoteId)
+	if err != nil {
+		return err
+	}
 	if order > 0 {
 		selectedCurve = selectParam(crypto.SupportedCurves, remoteInit.GetSupportedCurves())
 		selectedHash = selectParam(crypto.SupportedHashes, remoteInit.GetSupportedHashes())
@@ -242,6 +245,9 @@ func (p *peer) handshake(ctx context.Context, iden node.Identity) error {
 		salt = append(remoteInit.GetNonce(), localNonce...)
 	}
 	k1, k2, err := crypto.StretchKey(sharedSecret, salt, selectedHash, selectedCipher)
+	if err != nil {
+		return err
+	}
 	if order < 0 {
 		k2, k1 = k1, k2
 	}
