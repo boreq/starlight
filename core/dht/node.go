@@ -2,12 +2,13 @@ package dht
 
 import (
 	"container/list"
-	"errors"
 	"github.com/boreq/starlight/network/node"
 	"github.com/boreq/starlight/protocol/message"
 	"github.com/boreq/starlight/utils"
 	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
 	"golang.org/x/net/context"
+	"math/rand"
 	"sync"
 	"time"
 )
@@ -18,18 +19,19 @@ func (d *dht) FindNode(ctx context.Context, id node.ID) (node.NodeInfo, error) {
 	defer cancel()
 
 	// Run the lookup procedure.
-	nodes, err := d.findNode(ctx, id, true)
+	nodesLists, err := d.findNode(ctx, id, true)
 	if err != nil {
 		return node.NodeInfo{}, err
 	}
-	log.Debugf("FindNode got %d results", len(nodes))
+	log.Debugf("FindNode got %d result lists", len(nodesLists))
 
 	// Check if the procedure managed to locate the right node.
-	if len(nodes) > 0 && node.CompareId(nodes[0].Id, id) {
-		return nodes[0], nil
-	} else {
-		return node.NodeInfo{}, errors.New("Node not found")
+	for _, nodes := range nodesLists {
+		if len(nodes) > 0 && node.CompareId(nodes[0].Id, id) {
+			return nodes[0], nil
+		}
 	}
+	return node.NodeInfo{}, errors.New("node not found")
 }
 
 // messageFactory is used to send different messages during the node lookup
@@ -39,72 +41,108 @@ func (d *dht) FindNode(ctx context.Context, id node.ID) (node.NodeInfo, error) {
 // searched node.
 type messageFactory func(id node.ID) proto.Message
 
-// findNode performs a standard node lookup procedure using the FindNode
-// message.
-func (d *dht) findNode(ctx context.Context, id node.ID, breakOnResult bool) ([]node.NodeInfo, error) {
+//// findNode performs a standard node lookup procedure using the FindNode
+//// message.
+func (d *dht) findNode(ctx context.Context, id node.ID, breakOnResult bool) ([][]node.NodeInfo, error) {
 	msgFactory := func(id node.ID) proto.Message {
 		rv := &message.FindNode{
 			Id: id,
 		}
 		return rv
 	}
-	return d.findNodeCustom(ctx, id, msgFactory, breakOnResult)
+	return d.lookup(ctx, id, msgFactory, breakOnResult)
 }
 
-// findNodeCustom attempts to locate k closest nodes to a given key (node id).
-// If breakOnResult is true the lookup will stop immidiately when a result with
-// a matching key is found. That option is good for finding a single node.
-// Otherwise the lookup will continue anyway to find k closest nodes. That
-// variant is expected when looking for k closest nodes to store certain values
-// in the DHT.
-func (d *dht) findNodeCustom(ctx context.Context, id node.ID, msgFac messageFactory, breakOnResult bool) ([]node.NodeInfo, error) {
-	log.Debugf("findNode %s", id)
-
-	// Register that the lookup was performed to avoid refreshing the bucket
-	// that this node falls into during the bootstrap procedure.
-	d.rt.PerformedLookup(id)
-
+// lookup attempts to locate k closest nodes to a given key (node id). The
+// procedure is performed over disjoint paths. If breakOnResult is set this
+// function will return results the moment a node that we are looking for is
+// found in any of the lists.
+func (d *dht) lookup(ctx context.Context, id node.ID, msgFac messageFactory, breakOnResult bool) ([][]node.NodeInfo, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	results := newResultsList(id)
+	log.Debugf("lookup %s", id)
+
+	// Register that the lookup was performed to avoid refreshing the bucket
+	// that this node falls into during the bootstrap procedure.
+	d.rt.PerformedLookup(id) // TODO move this somewhere else in this code?
 
 	// Initial nodes from kbuckets. Take more than 'a' since some of them
 	// may be offline. There is really no real reason why 'k' nodes are
 	// picked here - that number is simply significantly larger than 'a'.
 	nodes := d.rt.GetClosest(id, k)
 	if len(nodes) == 0 {
-		log.Debug("findNode buckets empty, aborting")
-		return nil, errors.New("Buckets empty")
-	}
-	for _, nd := range nodes {
-		results.Add(d.self.Id, &nd)
+		return nil, errors.New("buckets returned zero nodes")
 	}
 
-	// If the first node is the one that we are looking for: query it, check
-	// if it is possible to connect to it and return it if that is the case.
-	if breakOnResult {
-		if elem := results.list.Front(); elem != nil {
-			ndData := elem.Value.(*nodeData)
-			if node.CompareId(ndData.Id, id) {
-				log.Debug("findNode found in buckets")
-				address, err := ndData.GetUnprocessedAddress()
-				if err == nil {
-					ndInfo := node.NodeInfo{ndData.Id, address.Address}
-					address.Processed = true
-					_, err := d.netDial(ndInfo)
-					if err == nil {
-						log.Debug("findNode got a response")
-						// Otherwise there will be no results.
-						address.Valid = true
-						return results.Results(), nil
-					}
-				}
-			}
+	// Split the retuned nodes into 'd' buckets randomly in order to perform
+	// a lookup over d disjoint paths.
+	var buckets []*resultsList
+	for i := 0; i < paramD; i++ {
+		buckets = append(buckets, newResultsList(id))
+	}
+	for i := range nodes {
+		j := rand.Intn(i + 1)
+		nodes[i], nodes[j] = nodes[j], nodes[i]
+	}
+	for i := range nodes {
+		buckets[i%paramD].Add(d.self.Id, &nodes[i])
+	}
+
+	// Start the disjoint lookup procedure for each bucket.
+	resultC := make(chan []node.NodeInfo, len(buckets))
+	bucketsMutex := &sync.Mutex{}
+
+	startedLookups := 0
+	for i := range buckets {
+		if len(buckets[i].Get(1)) > 0 {
+			startedLookups++
+			go d.lookupDisjointPath(ctx, buckets, bucketsMutex, i, id, msgFac, breakOnResult, resultC)
 		}
 	}
 
-	// Handle incoming messages.
+	// Gather results from all disjoint lookup procedures.
+	var results [][]node.NodeInfo
+	responses := 0
+	for {
+		select {
+		case result := <-resultC:
+			responses++
+			results = append(results, result)
+			// If we are supposed to breakOnResult and the node has
+			// been found return immidiately.
+			if breakOnResult {
+				if len(result) > 0 && node.CompareId(result[0].Id, id) {
+					return results, nil
+				}
+			}
+			if responses >= startedLookups {
+				return results, nil
+			}
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+}
+
+func (d *dht) lookupDisjointPath(ctx context.Context, buckets []*resultsList, bucketsMutex *sync.Mutex, bucketI int, id node.ID, msgFac messageFactory, breakOnResult bool, resultC chan<- []node.NodeInfo) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	results := buckets[bucketI]
+
+	isInOtherBuckets := func(id node.ID) bool {
+		for i, bucket := range buckets {
+			if i != bucketI {
+				if bucket.Contains(id) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+
+	// Handle incoming Nodes messages.
 	go func() {
 		c, cancel := d.net.Subscribe()
 		defer cancel()
@@ -113,12 +151,18 @@ func (d *dht) findNodeCustom(ctx context.Context, id node.ID, msgFac messageFact
 			case msg := <-c:
 				switch pMsg := msg.Message.(type) {
 				case *message.Nodes:
-					for _, nd := range pMsg.Nodes {
-						// Add to the list.
-						ndInfo := &node.NodeInfo{nd.GetId(), nd.GetAddress()}
-						if !node.CompareId(ndInfo.Id, d.self.Id) {
-							err := results.Add(msg.Sender.Id, ndInfo)
-							log.Debugf("findNode new %s, err %s", ndInfo.Id, err)
+					// When a Nodes message is received add
+					// every single node to the list of
+					// results.
+					if results.WasQueried(msg.Sender.Id) {
+						for _, nd := range pMsg.Nodes {
+							ndInfo := &node.NodeInfo{nd.GetId(), nd.GetAddress()}
+							if !node.CompareId(ndInfo.Id, d.self.Id) {
+								if !isInOtherBuckets(ndInfo.Id) {
+									err := results.Add(msg.Sender.Id, ndInfo)
+									log.Debugf("lookupDisjointPath new %s, err %s", ndInfo.Id, err)
+								}
+							}
 						}
 					}
 				}
@@ -130,11 +174,11 @@ func (d *dht) findNodeCustom(ctx context.Context, id node.ID, msgFac messageFact
 
 	var prevAllProcessed = false
 	for {
-		// Send new FindNode messages.
 		counterSent := 0
 		counterIter := 0
+		allProcessed := true
 
-		var allProcessed = true
+		// Send new FindNode messages.
 		for i, entry := range results.Get(k) {
 			counterIter = i
 
@@ -143,6 +187,9 @@ func (d *dht) findNodeCustom(ctx context.Context, id node.ID, msgFac messageFact
 				break
 			}
 
+			// Stop if an address for this entry has been found or
+			// it hasn't been found but no more addresses are
+			// known.
 			if entry.IsProcessed() {
 				continue
 			}
@@ -152,29 +199,48 @@ func (d *dht) findNodeCustom(ctx context.Context, id node.ID, msgFac messageFact
 			if err != nil {
 				continue
 			}
-			ndInfo := node.NodeInfo{entry.Id, address.Address}
 			address.Processed = true
-			peer, err := d.netDial(ndInfo)
+
+			ndInfo := node.NodeInfo{entry.Id, address.Address}
+
+			// Send the lookup message to the node.
+			p, err := d.netDial(ndInfo)
 			if err == nil {
-				address.Valid = true
+				if breakOnResult {
+					if node.CompareId(p.Info().Id, id) {
+						address.Valid = true
+						resultC <- results.Results()
+						return
+					}
+				}
 				counterSent++
 				msg := msgFac(id)
 				log.Debugf("findNode send to %s", ndInfo.Id)
-				go peer.SendWithContext(ctx, msg)
+				go p.SendWithContext(ctx, msg)
 			}
+
+			// Check if this node is reachable using this address.
+			go func() {
+				err = d.netCheckOnline(ctx, ndInfo)
+				if err == nil {
+					address.Valid = true
+				}
+			}()
 		}
 
 		// Already processed all k closest nodes.
 		if counterIter >= k && allProcessed {
 			log.Debug("findNode counterIter and allProcessed")
-			return results.Results(), nil
+			resultC <- results.Results()
+			return
 		}
 
 		// No new results, everything we have has been processed so
 		// is no point in waiting for more.
 		if prevAllProcessed && allProcessed {
 			log.Debug("findNode prevAllProcessed and allProcessed")
-			return results.Results(), nil
+			resultC <- results.Results()
+			return
 		}
 		prevAllProcessed = allProcessed
 
@@ -182,7 +248,8 @@ func (d *dht) findNodeCustom(ctx context.Context, id node.ID, msgFac messageFact
 		log.Debug("findNode waiting")
 		select {
 		case <-ctx.Done():
-			return results.Results(), ctx.Err()
+			resultC <- results.Results()
+			return
 		case <-time.After(1 * time.Second):
 		}
 	}
@@ -273,6 +340,19 @@ func (nd *nodeData) GetValidAddress() (*addressData, error) {
 		}
 	}
 	return nil, errors.New("Not found")
+}
+
+// WasQueried returns true if a message was sent to this node during this
+// lookup procedure.
+func (nd *nodeData) WasQueried() bool {
+	nd.lock.Lock()
+	defer nd.lock.Unlock()
+	for _, addressData := range nd.Addresses {
+		if addressData.Processed {
+			return true
+		}
+	}
+	return false
 }
 
 // IsProcessed returns true if the address for this node has been found or
@@ -393,4 +473,33 @@ func (l *resultsList) Get(k int) []*nodeData {
 		}
 	}
 	return rv
+}
+
+// WasQueried is used to check if a message was sent to a node during this
+// lookup procedure.
+func (l *resultsList) WasQueried(id node.ID) bool {
+	l.lock.Lock()
+	defer l.lock.Unlock()
+
+	for elem := l.list.Front(); elem != nil; elem = elem.Next() {
+		entry := elem.Value.(*nodeData)
+		if node.CompareId(entry.Id, id) {
+			return entry.WasQueried()
+		}
+	}
+	return false
+}
+
+// Contains is used to check if this results list contains a node.
+func (l *resultsList) Contains(id node.ID) bool {
+	l.lock.Lock()
+	defer l.lock.Unlock()
+
+	for elem := l.list.Front(); elem != nil; elem = elem.Next() {
+		entry := elem.Value.(*nodeData)
+		if node.CompareId(entry.Id, id) {
+			return true
+		}
+	}
+	return false
 }

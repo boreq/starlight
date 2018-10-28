@@ -18,6 +18,10 @@ type Network interface {
 	// exist attempts to establish it.
 	Dial(node node.NodeInfo) (Peer, error)
 
+	// CheckOnline checks if the node is available under the specified
+	// address.
+	CheckOnline(ctx context.Context, node node.NodeInfo) error
+
 	// FindActive returns an already connected Peer.
 	FindActive(id node.ID) (Peer, error)
 

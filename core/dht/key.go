@@ -20,7 +20,7 @@ func (d *dht) PutPubKey(ctx context.Context, id node.ID, key crypto.PublicKey) e
 	msg := &message.StorePubKey{Key: keyBytes}
 
 	// Locate the closest nodes.
-	nodes, err := d.findNode(ctx, id, false)
+	nodeResults, err := d.findNode(ctx, id, false)
 	if err != nil {
 		return err
 	}
@@ -29,14 +29,16 @@ func (d *dht) PutPubKey(ctx context.Context, id node.ID, key crypto.PublicKey) e
 	// a goroutine with the DHT's context is used instead of blocking.
 	go func() {
 		counter := 0
-		for _, nodeInfo := range nodes {
-			peer, err := d.netDial(nodeInfo)
-			if err == nil {
-				err := peer.SendWithContext(d.ctx, msg)
+		for _, nodes := range nodeResults {
+			for _, nodeInfo := range nodes {
+				peer, err := d.netDial(nodeInfo)
 				if err == nil {
-					counter++
-					if counter > k {
-						return
+					err := peer.SendWithContext(d.ctx, msg)
+					if err == nil {
+						counter++
+						if counter > k {
+							return
+						}
 					}
 				}
 			}
@@ -134,7 +136,7 @@ func (d *dht) getPubKey(ctx context.Context, id node.ID) (crypto.PublicKey, erro
 		}
 		return rv
 	}
-	go d.findNodeCustom(ctx, id, msgFactory, false)
+	go d.lookup(ctx, id, msgFactory, false)
 
 	// Await results.
 	select {

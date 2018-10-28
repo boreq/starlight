@@ -1,11 +1,11 @@
 package network
 
 import (
-	"errors"
 	"github.com/boreq/starlight/network/dispatcher"
 	"github.com/boreq/starlight/network/node"
 	"github.com/boreq/starlight/network/peer"
 	"github.com/boreq/starlight/utils"
+	"github.com/pkg/errors"
 	"golang.org/x/net/context"
 	"net"
 	"sync"
@@ -13,7 +13,7 @@ import (
 )
 
 var log = utils.GetLogger("network")
-var differentNodeIdError = errors.New("Peer has a different id than requested")
+var differentNodeIdError = errors.New("peer has a different id than requested")
 
 func New(ctx context.Context, ident node.Identity, address string) Network {
 	net := &network{
@@ -75,7 +75,11 @@ func (n *network) newConnection(ctx context.Context, conn net.Conn) (peer.Peer, 
 		log.Debugf("newConnection: failed to init a peer: %s", err)
 		return nil, err
 	}
+	return n.newPeer(p)
+}
 
+// Initiates a new peer.
+func (n *network) newPeer(p peer.Peer) (peer.Peer, error) {
 	// If we are already communicating with this node, return the peer we
 	// already have and terminate the new one.
 	n.plock.Lock()
@@ -107,6 +111,8 @@ func (n *network) newConnection(ctx context.Context, conn net.Conn) (peer.Peer, 
 	return p, nil
 }
 
+const dialTimeout = 10 * time.Second
+
 func (n *network) Dial(nd node.NodeInfo) (Peer, error) {
 	log.Debugf("Dial: %s on %s", nd.Id, nd.Address)
 
@@ -123,7 +129,7 @@ func (n *network) Dial(nd node.NodeInfo) (Peer, error) {
 	}
 
 	// Dial a peer if we are not already talking to it.
-	conn, err := net.DialTimeout("tcp", nd.Address, 10*time.Second)
+	conn, err := net.DialTimeout("tcp", nd.Address, dialTimeout)
 	if err != nil {
 		log.Debug("Dial: not responding", err)
 		return nil, err
@@ -142,6 +148,31 @@ func (n *network) Dial(nd node.NodeInfo) (Peer, error) {
 	} else {
 		return p, nil
 	}
+}
+
+func (n *network) CheckOnline(ctx context.Context, nd node.NodeInfo) error {
+	log.Debugf("CheckOnline: %s on %s", nd.Id, nd.Address)
+
+	if node.CompareId(nd.Id, n.iden.Id) {
+		return errors.New("tried checking a local id")
+	}
+
+	conn, err := net.DialTimeout("tcp", nd.Address, dialTimeout)
+	if err != nil {
+		return errors.Wrap(err, "could not dial")
+	}
+
+	p, err := peer.New(ctx, n.iden, n.address, conn)
+	if err != nil {
+		return errors.Wrap(err, "could not create a peer")
+	}
+
+	if !node.CompareId(nd.Id, p.Info().Id) {
+		return differentNodeIdError
+	}
+
+	go n.newPeer(p)
+	return nil
 }
 
 func (n *network) FindActive(id node.ID) (Peer, error) {

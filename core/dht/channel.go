@@ -21,7 +21,7 @@ func (d *dht) PutChannel(ctx context.Context, id []byte) error {
 	}
 
 	// Locate the closest nodes.
-	nodes, err := d.findNode(ctx, id, false)
+	nodeResults, err := d.findNode(ctx, id, false)
 	if err != nil {
 		return err
 	}
@@ -30,14 +30,16 @@ func (d *dht) PutChannel(ctx context.Context, id []byte) error {
 	// a goroutine with the DHT's context is used instead of blocking.
 	go func() {
 		counter := 0
-		for _, nodeInfo := range nodes {
-			peer, err := d.netDial(nodeInfo)
-			if err == nil {
-				err := peer.SendWithContext(d.ctx, msg)
+		for _, nodes := range nodeResults {
+			for _, nodeInfo := range nodes {
+				peer, err := d.netDial(nodeInfo)
 				if err == nil {
-					counter++
-					if counter > k {
-						return
+					err := peer.SendWithContext(d.ctx, msg)
+					if err == nil {
+						counter++
+						if counter > k {
+							return
+						}
 					}
 				}
 			}
@@ -144,7 +146,7 @@ func (d *dht) getChannel(ctx context.Context, id []byte) ([]*message.StoreChanne
 			}
 			return rv
 		}
-		d.findNodeCustom(ctx, id, msgFactory, false)
+		d.lookup(ctx, id, msgFactory, false)
 		select {
 		case findNodeDone <- 0:
 		case <-ctx.Done():

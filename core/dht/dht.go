@@ -21,6 +21,12 @@ const k = 20
 // System-wide concurrency parameter.
 const a = 3
 
+// The lookup procedure is performed over 'd' disjoint paths. As 'k' closest
+// nodes are split between 'd' buckets and queried 'a' nodes at a time it is
+// good to have those numbers have meaningful values in relation to each
+// other.
+const paramD = 2
+
 // Hash used for signing messages stored in the DHT (for example StoreChannel
 // messages).
 const SigningHash = crypto.SHA256
@@ -229,6 +235,16 @@ func (d *dht) netDial(nd node.NodeInfo) (network.Peer, error) {
 		d.rt.Unresponsive(nd.Id, nd.Address)
 	}
 	return p, err
+}
+
+// netCheckOnline wraps net.CheckOnline in order to remove a node from the
+// buckets if it fails to respond or returns a different error.
+func (d *dht) netCheckOnline(ctx context.Context, nd node.NodeInfo) error {
+	err := d.net.CheckOnline(ctx, nd)
+	if err != nil {
+		d.rt.Unresponsive(nd.Id, nd.Address)
+	}
+	return err
 }
 
 func (d *dht) Ping(ctx context.Context, id node.ID) (*time.Duration, error) {
