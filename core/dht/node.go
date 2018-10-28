@@ -41,8 +41,8 @@ func (d *dht) FindNode(ctx context.Context, id node.ID) (node.NodeInfo, error) {
 // searched node.
 type messageFactory func(id node.ID) proto.Message
 
-//// findNode performs a standard node lookup procedure using the FindNode
-//// message.
+// findNode performs a standard node lookup procedure using the FindNode
+// message.
 func (d *dht) findNode(ctx context.Context, id node.ID, breakOnResult bool) ([][]node.NodeInfo, error) {
 	msgFactory := func(id node.ID) proto.Message {
 		rv := &message.FindNode{
