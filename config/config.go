@@ -78,7 +78,7 @@ func getDefaultBootstrap() []node.NodeInfo {
 	for id, address := range def {
 		nodeId, err := node.NewId(id)
 		if err == nil {
-			rw = append(rw, node.NodeInfo{nodeId, address})
+			rw = append(rw, node.NodeInfo{Id: nodeId, Address: address})
 		}
 	}
 	return rw

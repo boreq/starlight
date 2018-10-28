@@ -50,7 +50,7 @@ func (b *bucket) Update(id node.ID, address string) {
 	if el != nil {
 		b.entries.Remove(el)
 	}
-	en := &bucketEntry{node.NodeInfo{id, address}, false}
+	en := &bucketEntry{node.NodeInfo{Id: id, Address: address}, false}
 	b.entries.PushFront(en)
 }
 

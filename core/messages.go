@@ -70,12 +70,12 @@ func (n *core) handleChannelMessageMsg(msg *message.ChannelMessage, sender node.
 
 	// Forward the message to other channel members.
 	for _, id := range ch.Users.Get(channelA) {
-		go func() {
+		go func(id node.ID) {
 			peer, err := n.dht.Dial(n.ctx, id)
 			if err == nil {
 				peer.Send(msg)
 			}
-		}()
+		}(id)
 	}
 
 	// Insert the sender into buckets.

@@ -9,7 +9,11 @@ import (
 
 var pingCmd = guinea.Command{
 	Arguments: []guinea.Argument{
-		{"id", false, "node to ping"},
+		{
+			Name:        "id",
+			Multiple:    false,
+			Description: "node to ping",
+		},
 	},
 	Run:              runPing,
 	ShortDescription: "pings a node",
@@ -25,7 +29,7 @@ func runPing(c guinea.Context) error {
 	}
 
 	for {
-		args := &backend.PingArgs{c.Arguments[0]}
+		args := &backend.PingArgs{NodeId: c.Arguments[0]}
 		latency := new(float64)
 		err := client.Call("Backend.Ping", args, &latency)
 		if err != nil {
@@ -34,6 +38,4 @@ func runPing(c guinea.Context) error {
 		fmt.Printf("%fms\n", *latency)
 		<-time.After(1 * time.Second)
 	}
-
-	return nil
 }

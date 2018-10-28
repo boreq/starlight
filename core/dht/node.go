@@ -156,7 +156,7 @@ func (d *dht) lookupDisjointPath(ctx context.Context, buckets []*resultsList, bu
 					// results.
 					if results.WasQueried(msg.Sender.Id) {
 						for _, nd := range pMsg.Nodes {
-							ndInfo := &node.NodeInfo{nd.GetId(), nd.GetAddress()}
+							ndInfo := &node.NodeInfo{Id: nd.GetId(), Address: nd.GetAddress()}
 							if !node.CompareId(ndInfo.Id, d.self.Id) {
 								if !isInOtherBuckets(ndInfo.Id) {
 									err := results.Add(msg.Sender.Id, ndInfo)
@@ -201,7 +201,7 @@ func (d *dht) lookupDisjointPath(ctx context.Context, buckets []*resultsList, bu
 			}
 			address.Processed = true
 
-			ndInfo := node.NodeInfo{entry.Id, address.Address}
+			ndInfo := node.NodeInfo{Id: entry.Id, Address: address.Address}
 
 			// Send the lookup message to the node.
 			p, err := d.netDial(ndInfo)
@@ -401,7 +401,7 @@ func (l *resultsList) Results() []node.NodeInfo {
 		if err != nil {
 			continue
 		}
-		info := node.NodeInfo{entry.Id, addr.Address}
+		info := node.NodeInfo{Id: entry.Id, Address: addr.Address}
 		rv = append(rv, info)
 	}
 	return rv
