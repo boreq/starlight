@@ -10,6 +10,23 @@ doc:
 	@echo "opening docs for a specific package."
 	godoc -http=:6060
 
+install-tools:
+	go get -u honnef.co/go/tools/cmd/unused
+	go get -u honnef.co/go/tools/cmd/staticcheck
+
+analyze: analyze-vet analyze-unused analyze-staticcheck
+
+analyze-vet:
+	go vet github.com/boreq/starlight/...
+
+analyze-unused:
+	# https://github.com/dominikh/go-tools/tree/master/cmd/unused
+	unused github.com/boreq/starlight/...
+
+analyze-staticcheck:
+	# https://github.com/dominikh/go-tools/tree/master/cmd/staticcheck
+	staticcheck github.com/boreq/starlight/...
+
 test:
 	go test ./...
 
@@ -28,4 +45,4 @@ proto:
 clean:
 	rm -f ./main/main
 
-.PHONY: all build doc test test-verbose test-short bench proto clean
+.PHONY: all build doc install-tools analyze analyze-vet analyze-unused analyze-staticcheck test test-verbose test-short bench proto clean
