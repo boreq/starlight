@@ -36,7 +36,7 @@ func (d *dht) PutPubKey(ctx context.Context, id node.ID, key crypto.PublicKey) e
 					err := peer.SendWithContext(d.ctx, msg)
 					if err == nil {
 						counter++
-						if counter > k {
+						if counter > paramK {
 							return
 						}
 					}

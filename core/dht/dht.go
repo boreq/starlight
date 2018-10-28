@@ -16,10 +16,10 @@ import (
 )
 
 // System-wide replication parameter.
-const k = 20
+const paramK = 20
 
 // System-wide concurrency parameter.
-const a = 3
+const paramA = 3
 
 // The lookup procedure is performed over 'd' disjoint paths. As 'k' closest
 // nodes are split between 'd' buckets and queried 'a' nodes at a time it is
@@ -47,7 +47,7 @@ func New(ctx context.Context, net network.Network, ident node.Identity) DHT {
 	rw := &dht{
 		ctx:          ctx,
 		net:          net,
-		rt:           kbuckets.New(ident.Id, k, refreshbucketsAfter),
+		rt:           kbuckets.New(ident.Id, paramK, refreshbucketsAfter),
 		self:         ident,
 		disp:         dispatcher.New(ctx),
 		pubKeysStore: datastore.New(pubKeyStoreTimeout),
@@ -302,7 +302,7 @@ func (d *dht) Ping(ctx context.Context, id node.ID) (*time.Duration, error) {
 // createNodesMessage creates a Nodes message with the 'k' known nodes closest
 // to the provided id.
 func (d *dht) createNodesMessage(id node.ID) *message.Nodes {
-	nodes := d.rt.GetClosest(id, k)
+	nodes := d.rt.GetClosest(id, paramK)
 	msg := &message.Nodes{}
 	for i := 0; i < len(nodes); i++ {
 		ndInfo := &message.Nodes_NodeInfo{

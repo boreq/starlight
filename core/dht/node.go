@@ -70,7 +70,7 @@ func (d *dht) lookup(ctx context.Context, id node.ID, msgFac messageFactory, bre
 	// Initial nodes from kbuckets. Take more than 'a' since some of them
 	// may be offline. There is really no real reason why 'k' nodes are
 	// picked here - that number is simply significantly larger than 'a'.
-	nodes := d.rt.GetClosest(id, k)
+	nodes := d.rt.GetClosest(id, paramK)
 	if len(nodes) == 0 {
 		return nil, errors.New("buckets returned zero nodes")
 	}
@@ -179,11 +179,11 @@ func (d *dht) lookupDisjointPath(ctx context.Context, buckets []*resultsList, bu
 		allProcessed := true
 
 		// Send new FindNode messages.
-		for i, entry := range results.Get(k) {
+		for i, entry := range results.Get(paramK) {
 			counterIter = i
 
 			// Stop after sending 'a' messages and await results.
-			if counterSent >= a {
+			if counterSent >= paramA {
 				break
 			}
 
@@ -229,7 +229,7 @@ func (d *dht) lookupDisjointPath(ctx context.Context, buckets []*resultsList, bu
 		}
 
 		// Already processed all k closest nodes.
-		if counterIter >= k && allProcessed {
+		if counterIter >= paramK && allProcessed {
 			log.Debug("findNode counterIter and allProcessed")
 			resultC <- results.Results()
 			return

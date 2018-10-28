@@ -37,7 +37,7 @@ func (d *dht) PutChannel(ctx context.Context, id []byte) error {
 					err := peer.SendWithContext(d.ctx, msg)
 					if err == nil {
 						counter++
-						if counter > k {
+						if counter > paramK {
 							return
 						}
 					}
