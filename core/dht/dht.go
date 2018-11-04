@@ -10,6 +10,7 @@ import (
 	"github.com/boreq/starlight/network/node"
 	"github.com/boreq/starlight/protocol/message"
 	"github.com/boreq/starlight/utils"
+	"github.com/pkg/errors"
 	"golang.org/x/net/context"
 	"math/rand"
 	"time"
@@ -85,56 +86,25 @@ func (d *dht) listenToNetwork() {
 }
 
 func (d *dht) Init(nodes []node.NodeInfo) error {
-	var foundOnlineNodes = false
-
-	// Init the DHT - populate buckets with initial nodes.
+	// Init the DHT - insert all defined bootstrap nodes into the buckets.
 	for _, nodeInfo := range nodes {
-		peer, err := d.netDial(nodeInfo)
-		if err != nil {
-			log.Debugf("Init dial %s, err: %s", nodeInfo.Id, err)
-			continue
-		}
-		// Exchanging an actual message like Ping (and not just the
-		// handshake related messages automatically exchanged when
-		// connecting) will cause several automatic mechanisms like
-		// bucket population to be executed without further
-		// intervention, so this is actually just a hack to avoid code
-		// duplication and cramming more of it in this function.
-		random := rand.Uint32()
-		msg := &message.Ping{Random: &random}
-		err = peer.Send(msg)
-		if err != nil {
-			log.Debugf("Init ping %s, err: %s", nodeInfo.Id, err)
-			continue
-		}
-
-		foundOnlineNodes = true
-	}
-
-	// Since at least one node is needed to function, in case of failure all
-	// provided nodes will be inserted into the buckets (possibly the
-	// network connection is temporarily down or similar issue occured) as
-	// the daemon/bootstrap process wouldn't finish with empty buckets
-	// making it impossible to start the program.
-	if !foundOnlineNodes {
-		log.Debug("Could not dial the provided bootstrap nodes, inserting all of them")
-		for _, nodeInfo := range nodes {
-			d.rt.Update(nodeInfo.Id, nodeInfo.Address)
-		}
+		d.rt.Update(nodeInfo.Id, nodeInfo.Address)
 	}
 
 	// Init the DHT - refresh the more distant buckets.
 	// TODO
 
 	// Init the DHT - run FindNode on local node's id.
-	<-time.After(time.Second)
-	d.findNode(d.ctx, d.self.Id, false)
+	_, err := d.findNode(d.ctx, d.self.Id, false)
+	if err != nil {
+		return errors.Wrap(err, "findNode on local id failed")
+	}
 
 	// Init the DHT - run the bootstrap once before returning and then
 	// continue in a loop.
-	err := d.bootstrap(d.ctx)
+	err = d.bootstrap(d.ctx)
 	if err != nil {
-		return err // TODO don't abort I think
+		return errors.Wrap(err, "initial bootstrap failed")
 	}
 	go d.runBootstrap(d.ctx, bootstrapInterval)
 

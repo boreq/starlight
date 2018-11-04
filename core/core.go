@@ -9,6 +9,7 @@ import (
 	"github.com/boreq/starlight/network/node"
 	"github.com/boreq/starlight/protocol/message"
 	"github.com/boreq/starlight/utils"
+	"github.com/pkg/errors"
 	"golang.org/x/net/context"
 	"sync"
 )
@@ -63,9 +64,8 @@ func (n *core) listenToDht() {
 func (n *core) Start() error {
 	err := n.dht.Init(n.config.BootstrapNodes)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "dht init failed")
 	}
-
 	return nil
 }
 
