@@ -4,8 +4,10 @@ import (
 	"github.com/boreq/guinea"
 	"github.com/boreq/starlight/config"
 	"github.com/boreq/starlight/core"
+	"github.com/boreq/starlight/core/dht"
 	"github.com/boreq/starlight/irc"
 	"github.com/boreq/starlight/local"
+	"github.com/boreq/starlight/network"
 	"github.com/boreq/starlight/network/node"
 	"golang.org/x/net/context"
 	"os"
@@ -31,7 +33,15 @@ func daemon(c guinea.Context) error {
 	defer cancel()
 
 	// Connect to the wired
-	core := core.NewCore(ctx, *iden, conf)
+	net := network.New(ctx, *iden, conf.ListenAddress)
+	dht := dht.New(ctx, net, *iden)
+	core := core.NewCore(ctx, *iden, conf, dht)
+
+	err = net.Listen()
+	if err != nil {
+		return err
+	}
+
 	err = core.Start()
 	if err != nil {
 		return err

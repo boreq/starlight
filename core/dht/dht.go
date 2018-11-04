@@ -44,7 +44,7 @@ const refreshbucketsAfter = 1 * time.Hour
 var log = utils.GetLogger("dht")
 
 func New(ctx context.Context, net network.Network, ident node.Identity) DHT {
-	rw := &dht{
+	rv := &dht{
 		ctx:          ctx,
 		net:          net,
 		rt:           kbuckets.New(ident.Id, paramK, refreshbucketsAfter),
@@ -53,7 +53,8 @@ func New(ctx context.Context, net network.Network, ident node.Identity) DHT {
 		pubKeysStore: datastore.New(pubKeyStoreTimeout),
 		channelStore: channelstore.New(maxStoreChannelMessageAge),
 	}
-	return rw
+	go rv.listenToNetwork()
+	return rv
 }
 
 type dht struct {
@@ -70,21 +71,20 @@ func (d *dht) Subscribe() (chan dispatcher.IncomingMessage, dispatcher.CancelFun
 	return d.disp.Subscribe()
 }
 
-func (d *dht) Init(nodes []node.NodeInfo) error {
-	// Receive all incoming messages to add nodes to the routing table etc.
-	go func() {
-		c, cancel := d.net.Subscribe()
-		defer cancel()
-		for {
-			select {
-			case msg := <-c:
-				go d.handleMessage(d.ctx, msg)
-			case <-d.ctx.Done():
-				return
-			}
+func (d *dht) listenToNetwork() {
+	c, cancel := d.net.Subscribe()
+	defer cancel()
+	for {
+		select {
+		case msg := <-c:
+			go d.handleMessage(d.ctx, msg)
+		case <-d.ctx.Done():
+			return
 		}
-	}()
+	}
+}
 
+func (d *dht) Init(nodes []node.NodeInfo) error {
 	var foundOnlineNodes = false
 
 	// Init the DHT - populate buckets with initial nodes.
