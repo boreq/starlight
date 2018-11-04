@@ -7,7 +7,9 @@ import (
 	"github.com/boreq/starlight/transport"
 	"github.com/boreq/starlight/transport/basic"
 	"github.com/boreq/starlight/utils"
+	"github.com/boreq/starlight/utils/size"
 	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
 	"golang.org/x/net/context"
 	"net"
 	"sync"
@@ -18,6 +20,12 @@ import (
 // the handshake takes longer the procedure will be aborted and the peer will
 // be disconnected.
 const handshakeTimeout = 5 * time.Second
+
+// maxMessageSize specifies a max size of a message that is allowed to be sent
+// between two peers. If a larger message is received the peer will be
+// disconnected. If a larger message is attempted to be send the send action
+// will fail.
+const maxMessageSize = 100 * size.Kilobyte
 
 var log = utils.GetLogger("peer")
 
@@ -34,7 +42,7 @@ func New(ctx context.Context, iden node.Identity, listenAddress string, conn net
 		conn:   conn,
 	}
 	p.wrapper = transport.NewWrapper(conn, conn)
-	p.wrapper.AddLayer(basic.New())
+	p.wrapper.AddLayer(basic.New(uint32(maxMessageSize)))
 
 	hCtx, cancel := context.WithTimeout(p.ctx, handshakeTimeout)
 	defer cancel()
@@ -97,11 +105,11 @@ func (p *peer) Close() {
 }
 
 func (p *peer) Send(msg proto.Message) error {
-	log.Debugf("%s sending %T", p.id, msg)
 	data, err := protocol.Encode(msg)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "send failed")
 	}
+	log.Debugf("%s sending %T (%d bytes)", p.id, msg, len(data))
 	return p.send(data)
 }
 
@@ -118,11 +126,11 @@ func (p *peer) send(data []byte) error {
 }
 
 func (p *peer) SendWithContext(ctx context.Context, msg proto.Message) error {
-	log.Debugf("%s sending with context %T", p.id, msg)
 	data, err := protocol.Encode(msg)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "send with context failed")
 	}
+	log.Debugf("%s sending with context %T (%d bytes)", p.id, msg, len(data))
 	return p.sendWithContext(ctx, data)
 }
 

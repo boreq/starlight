@@ -24,11 +24,17 @@ var log = utils.GetLogger("transport/basic")
 // received using this layer.
 const MaxMessageLen = math.MaxUint32
 
-func New() transport.Layer {
-	return &basic{}
+func New(messageSizeLimit uint32) transport.Layer {
+	return &basic{
+		MessageSizeLimit: messageSizeLimit,
+	}
 }
 
-type basic struct{}
+type basic struct {
+	// MessageSizeLimit limits the size of sent and received messages. The size
+	// is represented in bytes.
+	MessageSizeLimit uint32
+}
 
 func (b *basic) Encode(r io.Reader, w io.Writer) error {
 	buf := &bytes.Buffer{}
@@ -39,7 +45,10 @@ func (b *basic) Encode(r io.Reader, w io.Writer) error {
 
 	// Write the size
 	if buf.Len() > MaxMessageLen {
-		return errors.New("Data length exceeding MaxMessageLen")
+		return errors.New("data length exceeding MaxMessageLen")
+	}
+	if uint32(buf.Len()) > b.MessageSizeLimit {
+		return errors.New("data length exceeding MessageSizeLimit")
 	}
 	if err := binary.Write(w, binary.BigEndian, uint32(buf.Len())); err != nil {
 		return err
@@ -70,7 +79,10 @@ func (b *basic) Decode(r io.Reader, w io.Writer) error {
 		return err
 	}
 	if size > MaxMessageLen {
-		return errors.New("Data length exceeding MaxMessageLen")
+		return errors.New("data length exceeding MaxMessageLen")
+	}
+	if size > b.MessageSizeLimit {
+		return errors.New("data length exceeding MessageSizeLimit")
 	}
 
 	// Get the data
