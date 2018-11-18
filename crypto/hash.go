@@ -2,7 +2,6 @@ package crypto
 
 import (
 	"crypto"
-	"crypto/sha256"
 	"errors"
 	"hash"
 )
@@ -16,7 +15,7 @@ func Digest(hash hash.Hash, data []byte) []byte {
 }
 
 // keyDigestHash is a hash used by the KeyDigest function.
-var keyDigestHash = sha256.New()
+var keyDigestHash = crypto.SHA256
 
 // KeyDigestLength is a length of a key digest produced by the KeyDigest
 // function.
@@ -28,7 +27,7 @@ func KeyDigest(key Key) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return Digest(keyDigestHash, b), nil
+	return Digest(keyDigestHash.New(), b), nil
 }
 
 // GetHash returns a hash.Hash based on the name.
