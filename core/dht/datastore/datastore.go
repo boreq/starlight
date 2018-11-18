@@ -5,6 +5,7 @@ package datastore
 import (
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 )
 
@@ -27,10 +28,14 @@ type item struct {
 type Datastore struct {
 	items     map[string]item
 	threshold time.Duration
+	mutex sync.Mutex
 }
 
 // Store inserts a new entry.
 func (d *Datastore) Store(key []byte, data interface{}) error {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
 	d.cleanup()
 	sKey := convertKey(key)
 	d.items[sKey] = item{data, time.Now()}
@@ -41,6 +46,9 @@ func (d *Datastore) Store(key []byte, data interface{}) error {
 // there is no guarantee that an item will be removed immediately after the
 // specified amount of time passes.
 func (d *Datastore) Get(key []byte) (interface{}, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
 	sKey := convertKey(key)
 	item, ok := d.items[sKey]
 	if !ok {
