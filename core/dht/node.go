@@ -179,7 +179,7 @@ func (d *dht) lookupDisjointPath(ctx context.Context, buckets []*resultsList, bu
 		allProcessed := true
 
 		// Send new FindNode messages.
-		for i, entry := range results.Get(paramK) {
+		for i, nData := range results.Get(paramK) {
 			counterIter = i
 
 			// Stop after sending 'a' messages and await results.
@@ -190,18 +190,20 @@ func (d *dht) lookupDisjointPath(ctx context.Context, buckets []*resultsList, bu
 			// Stop if an address for this entry has been found or
 			// it hasn't been found but no more addresses are
 			// known.
-			if entry.IsProcessed() {
+			if nData.IsProcessed() {
 				continue
 			}
 
 			allProcessed = false
-			address, err := entry.GetUnprocessedAddress()
+			address, err := nData.GetUnprocessedAddress()
 			if err != nil {
 				continue
 			}
-			address.Processed = true
+			if err := nData.MarkAddressProcessed(address.Address); err != nil {
+				log.Debugf("error marking address as processed: %s", err)
+			}
 
-			ndInfo := node.NodeInfo{Id: entry.Id, Address: address.Address}
+			ndInfo := node.NodeInfo{Id: nData.Id, Address: address.Address}
 
 			// Send the lookup message to the node.
 			p, err := d.netDial(ndInfo)
@@ -220,12 +222,14 @@ func (d *dht) lookupDisjointPath(ctx context.Context, buckets []*resultsList, bu
 			}
 
 			// Check if this node is reachable using this address.
-			go func() {
+			go func(nData *nodeData) {
 				err = d.netCheckOnline(ctx, ndInfo)
 				if err == nil {
-					address.Valid = true
+					if err := nData.MarkAddressValid(address.Address); err != nil {
+						log.Debugf("error marking address as valid: %s", err)
+					}
 				}
-			}()
+			}(nData)
 		}
 
 		// Already processed all k closest nodes.
@@ -261,11 +265,14 @@ func (d *dht) lookupDisjointPath(ctx context.Context, buckets []*resultsList, bu
 type addressData struct {
 	// Network address in the format used by the net package.
 	Address string
+
 	// Sources is a list of nodes that sent this address.
 	Sources []node.ID
+
 	// Processed is true if the lookup procedure tried connecting to this
 	// address.
 	Processed bool
+
 	// Valid is true if the lookup procedure tried connecting to this
 	// address and succeeded.
 	Valid bool
@@ -274,7 +281,7 @@ type addressData struct {
 // nodeData stores the results of a node lookup for a single node.
 type nodeData struct {
 	Id        node.ID
-	Addresses []*addressData
+	addresses []*addressData
 	Distance  []byte
 	lock      sync.Mutex
 }
@@ -286,7 +293,7 @@ func (nd *nodeData) Insert(sender node.ID, address string) error {
 	nd.lock.Lock()
 	defer nd.lock.Unlock()
 
-	for _, addrData := range nd.Addresses {
+	for _, addrData := range nd.addresses {
 		if addrData.Address == address {
 			for _, id := range addrData.Sources {
 				if node.CompareId(sender, id) {
@@ -303,19 +310,19 @@ func (nd *nodeData) Insert(sender node.ID, address string) error {
 		Processed: false,
 		Valid:     false,
 	}
-	nd.Addresses = append(nd.Addresses, ad)
+	nd.addresses = append(nd.addresses, ad)
 	return nil
 }
 
 // GetUnprocessedAddress returns an unprocessed address with the highest
 // amount of sources (an address that the lookup procedure hasn't checked yet).
-func (nd *nodeData) GetUnprocessedAddress() (*addressData, error) {
+func (nd *nodeData) GetUnprocessedAddress() (addressData, error) {
 	nd.lock.Lock()
 	defer nd.lock.Unlock()
 
 	maxSources := 0
 	i := 0
-	for j, addressData := range nd.Addresses {
+	for j, addressData := range nd.addresses {
 		l := len(addressData.Sources)
 		if !addressData.Processed && l > maxSources {
 			maxSources = l
@@ -323,23 +330,27 @@ func (nd *nodeData) GetUnprocessedAddress() (*addressData, error) {
 		}
 	}
 	if maxSources > 0 {
-		return nd.Addresses[i], nil
+		return *nd.addresses[i], nil
 	} else {
-		return nil, errors.New("Not found")
+		return addressData{}, errors.New("Not found")
 	}
 }
 
 // GetValidAddress returns a confirmed, valid address for this node.
-func (nd *nodeData) GetValidAddress() (*addressData, error) {
+func (nd *nodeData) GetValidAddress() (addressData, error) {
 	nd.lock.Lock()
 	defer nd.lock.Unlock()
 
-	for _, addressData := range nd.Addresses {
+	return nd.getValidAddress()
+}
+
+func (nd *nodeData) getValidAddress() (addressData, error) {
+	for _, addressData := range nd.addresses {
 		if addressData.Valid {
-			return addressData, nil
+			return *addressData, nil
 		}
 	}
-	return nil, errors.New("Not found")
+	return addressData{}, errors.New("Not found")
 }
 
 // WasQueried returns true if a message was sent to this node during this
@@ -347,7 +358,8 @@ func (nd *nodeData) GetValidAddress() (*addressData, error) {
 func (nd *nodeData) WasQueried() bool {
 	nd.lock.Lock()
 	defer nd.lock.Unlock()
-	for _, addressData := range nd.Addresses {
+
+	for _, addressData := range nd.addresses {
 		if addressData.Processed {
 			return true
 		}
@@ -358,19 +370,49 @@ func (nd *nodeData) WasQueried() bool {
 // IsProcessed returns true if the address for this node has been found or
 // it hasn't been found but there are no more addresses to query.
 func (nd *nodeData) IsProcessed() bool {
-	if _, err := nd.GetValidAddress(); err == nil {
-		return true
-	}
-
 	nd.lock.Lock()
 	defer nd.lock.Unlock()
 
-	for _, addressData := range nd.Addresses {
+	if _, err := nd.getValidAddress(); err == nil {
+		return true
+	}
+
+	for _, addressData := range nd.addresses {
 		if !addressData.Processed {
 			return false
 		}
 	}
 	return true
+}
+
+// MarkAddressProcessed marks an address processed. Address can't be returned
+// using a pointer and marked as processed directly due to race conditions.
+func (nd *nodeData) MarkAddressProcessed(address string) error {
+	nd.lock.Lock()
+	defer nd.lock.Unlock()
+
+	for _, addressData := range nd.addresses {
+		if addressData.Address == address {
+			addressData.Processed = true
+			return nil
+		}
+	}
+	return errors.New("address not found")
+}
+
+// MarkAddressProcessed marks an address processed. Address can't be returned
+// using a pointer and marked as processed directly due to race conditions.
+func (nd *nodeData) MarkAddressValid(address string) error {
+	nd.lock.Lock()
+	defer nd.lock.Unlock()
+
+	for _, addressData := range nd.addresses {
+		if addressData.Address == address {
+			addressData.Valid = true
+			return nil
+		}
+	}
+	return errors.New("address not found")
 }
 
 func newResultsList(id node.ID) *resultsList {
