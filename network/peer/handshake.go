@@ -5,7 +5,8 @@ import (
 	"crypto/cipher"
 	"crypto/hmac"
 	"encoding/binary"
-	"errors"
+	"strings"
+
 	"github.com/boreq/starlight/crypto"
 	"github.com/boreq/starlight/network/node"
 	"github.com/boreq/starlight/protocol/message"
@@ -13,8 +14,8 @@ import (
 	"github.com/boreq/starlight/transport/secure"
 	"github.com/boreq/starlight/utils"
 	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
 	"golang.org/x/net/context"
-	"strings"
 )
 
 // selectParam accepts two strings containing words separated by commas. It
@@ -73,7 +74,7 @@ func (p *peer) sendAsyncWithContext(ctx context.Context, msg proto.Message) <-ch
 	go func() {
 		err := p.SendWithContext(ctx, msg)
 		if err != nil {
-			errC <- err
+			errC <- errors.Wrap(err, "could not send with context")
 		}
 	}()
 	return errC
@@ -88,7 +89,7 @@ func (p *peer) receiveAsyncWithContext(ctx context.Context) (<-chan proto.Messag
 	go func() {
 		msg, err := p.ReceiveWithContext(ctx)
 		if err != nil {
-			errC <- err
+			errC <- errors.Wrap(err, "could not receive with context")
 			return
 		}
 		msgC <- msg
@@ -101,9 +102,9 @@ func (p *peer) exchangeMessages(ctx context.Context, msg proto.Message) (proto.M
 	msgC, recErrC := p.receiveAsyncWithContext(ctx)
 	select {
 	case err := <-sendErrC:
-		return nil, err
+		return nil, errors.Wrap(err, "async send failed")
 	case err := <-recErrC:
-		return nil, err
+		return nil, errors.Wrap(err, "async receive failed")
 	case msg := <-msgC:
 		return msg, nil
 	}
@@ -117,16 +118,16 @@ func (p *peer) handshake(ctx context.Context, iden node.Identity) error {
 	// === EXCHANGE INIT MESSAGES ===
 	//
 
-	// Form an Init message.
+	// Form an Init message
 	pubKeyBytes, err := iden.PubKey.Bytes()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not get the pub key bytes")
 	}
 
 	localNonce := make([]byte, nonceSize)
 	err = crypto.GenerateNonce(localNonce)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not generate a nonce")
 	}
 
 	localInit := &message.Init{
@@ -137,41 +138,41 @@ func (p *peer) handshake(ctx context.Context, iden node.Identity) error {
 		SupportedCiphers: &crypto.SupportedCiphers,
 	}
 
-	// Exchange Init messages.
+	// Exchange Init messages
 	msg, err := p.exchangeMessages(ctx, localInit)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not exchange init messages")
 	}
 	remoteInit, ok := msg.(*message.Init)
 	if !ok {
-		return errors.New("The received message is not Init")
+		return errors.New("the received message is not Init")
 	}
 
 	//
 	// === PROCESS INIT MESSAGES ===
 	//
 
-	// Establish identity.
+	// Establish identity
 	remotePub, err := crypto.NewPublicKey(remoteInit.GetPubKey())
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not create the remote public key")
 	}
 	remoteId, err := remotePub.Hash()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not hash the remote public key")
 	}
 
-	// Fail if the id is invalid.
+	// Fail if the id is invalid
 	if !node.ValidateId(remoteId) {
-		return errors.New("Invalid remote id")
+		return errors.New("invalid remote id")
 	}
 
-	// Fail if the id is the same as the id of the local node.
+	// Fail if the id is the same as the id of the local node
 	if node.CompareId(remoteId, iden.Id) {
-		return errors.New("Peer claims to have the same id")
+		return errors.New("peer claims to have the same id as the local node")
 	}
 
-	// Choose encryption params.
+	// Choose encryption params
 	var selectedCurve, selectedHash, selectedCipher string
 	// We need everything to be perfomed the same way on both sides.
 	order, err := utils.Compare(iden.Id, remoteId)
@@ -189,42 +190,42 @@ func (p *peer) handshake(ctx context.Context, iden node.Identity) error {
 	}
 
 	if selectedCurve == "" || selectedHash == "" || selectedCipher == "" {
-		return errors.New("Selection error")
+		return errors.New("selection error")
 	}
 
 	//
 	// === EXCHANGE HANDSHAKE MESSAGES ===
 	//
 
-	// Generate ephemeral key.
+	// Generate ephemeral key
 	curve, err := crypto.GetCurve(selectedCurve)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not get a selected curve")
 	}
 
 	ephemeralKey, err := crypto.GenerateEphemeralKeypair(curve)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not generate an ephemeral keypair")
 	}
 
-	// Form Handshake message.
+	// Form Handshake message
 	localEphemeralKeyBytes, err := ephemeralKey.Bytes()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not get local ephemeral key bytes")
 	}
 
 	localHandshake := &message.Handshake{
 		EphemeralPubKey: localEphemeralKeyBytes,
 	}
 
-	// Exchange Handshake messages.
+	// Exchange Handshake messages
 	msg, err = p.exchangeMessages(ctx, localHandshake)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not exchange handshake messages")
 	}
 	remoteHandshake, ok := msg.(*message.Handshake)
 	if !ok {
-		return errors.New("Received message is not Handshake")
+		return errors.New("received message is not Handshake")
 	}
 
 	//
@@ -237,7 +238,7 @@ func (p *peer) handshake(ctx context.Context, iden node.Identity) error {
 		return err
 	}
 
-	// Generate two key pairs by stretching the secret.
+	// Generate two key pairs by stretching the secret
 	var salt []byte
 	if order > 0 {
 		salt = append(localNonce, remoteInit.GetNonce()...)
@@ -246,27 +247,27 @@ func (p *peer) handshake(ctx context.Context, iden node.Identity) error {
 	}
 	k1, k2, err := crypto.StretchKey(sharedSecret, salt, selectedHash, selectedCipher)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "key stretching failed")
 	}
 	if order < 0 {
 		k2, k1 = k1, k2
 	}
 
-	// Convert the byte nonces to initial integer nonces.
+	// Convert the byte nonces to initial integer nonces
 	var intLocalNonce, intRemoteNonce uint32
 	bufRemoteNonce := bytes.NewBuffer(remoteInit.GetNonce())
 	if err := binary.Read(bufRemoteNonce, binary.BigEndian, &intRemoteNonce); err != nil {
-		return err
+		return errors.Wrap(err, "could not read the remote nonce")
 	}
 	bufLocalNonce := bytes.NewBuffer(localNonce)
 	if err := binary.Read(bufLocalNonce, binary.BigEndian, &intLocalNonce); err != nil {
-		return err
+		return errors.Wrap(err, "could not read the local nonce")
 	}
 
-	// Initiate the secure encoder.
+	// Initiate the secure encoder
 	layer, err := newSecure(k1, k2, intLocalNonce, intRemoteNonce, selectedHash, selectedCipher)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not create a secure encoder")
 	}
 	p.wrapper.AddLayer(layer)
 
@@ -299,7 +300,7 @@ func (p *peer) handshake(ctx context.Context, iden node.Identity) error {
 	// Form ConfirmHandshake message.
 	sig, err := iden.PrivKey.Sign(valueToSign.Bytes(), hash)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "signing with the private key failed")
 	}
 
 	localConfirm := &message.ConfirmHandshake{
@@ -310,26 +311,26 @@ func (p *peer) handshake(ctx context.Context, iden node.Identity) error {
 	// Exchange ConfirmHandshake messages.
 	msg, err = p.exchangeMessages(ctx, localConfirm)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not exchange confirm hanshake messages")
 	}
 	remoteConfirm, ok := msg.(*message.ConfirmHandshake)
 	if !ok {
-		return errors.New("Received message is not ConfirmHandshake")
+		return errors.New("received message is not ConfirmHandshake")
 	}
 
 	//
 	// === PROCESS CONFIRMHANDSHAKE MESSAGES ===
 	//
 
-	// Confirm identity.
+	// Confirm identity
 	err = remotePub.Validate(valueToSign.Bytes(), remoteConfirm.GetSignature(), hash)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "remote identity confirmation failed")
 	}
 
 	confirm, err := utils.Compare(remoteConfirm.GetNonce(), localNonce)
 	if err != nil || confirm != 0 {
-		return errors.New("Received invalid nonce")
+		return errors.New("received an invalid nonce")
 	}
 
 	// Finally set up the peer.
@@ -351,7 +352,7 @@ func (p *peer) identify(ctx context.Context, listenAddr string) error {
 	// Exchange Identity messages.
 	msg, err := p.exchangeMessages(ctx, localIdentify)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not exchange identify messages")
 	}
 	remoteIdentify, ok := msg.(*message.Identity)
 	if !ok {

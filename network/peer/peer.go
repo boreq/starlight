@@ -1,6 +1,10 @@
 package peer
 
 import (
+	"net"
+	"sync"
+	"time"
+
 	"github.com/boreq/starlight/crypto"
 	"github.com/boreq/starlight/network/node"
 	"github.com/boreq/starlight/protocol"
@@ -11,9 +15,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
-	"net"
-	"sync"
-	"time"
 )
 
 // handshakeTimeout specifies the time assigned for the handshake procedure. If
@@ -47,17 +48,16 @@ func New(ctx context.Context, iden node.Identity, listenAddress string, conn net
 	hCtx, cancel := context.WithTimeout(p.ctx, handshakeTimeout)
 	defer cancel()
 
-	err := p.handshake(hCtx, iden)
-	if err != nil {
-		log.Debug("HANDSHAKE ERROR")
+	if err := p.handshake(hCtx, iden); err != nil {
 		p.Close()
-		return nil, err
+		log.Debugf("handshake error: %s", err)
+		return nil, errors.Wrap(err, "handshake error")
 	}
-	err = p.identify(hCtx, listenAddress)
-	if err != nil {
-		log.Debug("IDENTIFY ERROR")
+
+	if err := p.identify(hCtx, listenAddress); err != nil {
 		p.Close()
-		return nil, err
+		log.Debugf("identify error: %s", err)
+		return nil, errors.Wrap(err, "identify error")
 	}
 
 	return p, nil
@@ -107,7 +107,7 @@ func (p *peer) Close() {
 func (p *peer) Send(msg proto.Message) error {
 	data, err := protocol.Encode(msg)
 	if err != nil {
-		return errors.Wrap(err, "send failed")
+		return errors.Wrap(err, "protocol encoding failed")
 	}
 	log.Debugf("%s sending %T (%d bytes)", p.id, msg, len(data))
 	return p.send(data)
@@ -122,13 +122,13 @@ func (p *peer) send(data []byte) error {
 		log.Debugf("error on send %s, closing %s", err, p.id)
 		p.Close()
 	}
-	return err
+	return errors.Wrap(err, "wrapper send failed")
 }
 
 func (p *peer) SendWithContext(ctx context.Context, msg proto.Message) error {
 	data, err := protocol.Encode(msg)
 	if err != nil {
-		return errors.Wrap(err, "send with context failed")
+		return errors.Wrap(err, "protocol encoding failed")
 	}
 	log.Debugf("%s sending with context %T (%d bytes)", p.id, msg, len(data))
 	return p.sendWithContext(ctx, data)
@@ -145,7 +145,7 @@ func (p *peer) sendWithContext(ctx context.Context, data []byte) error {
 	go func() {
 		err := p.send(data)
 		select {
-		case result <- err:
+		case result <- errors.Wrap(err, "send failed"):
 		case <-ctx.Done():
 		}
 	}()
@@ -161,7 +161,7 @@ func (p *peer) sendWithContext(ctx context.Context, data []byte) error {
 func (p *peer) Receive() (proto.Message, error) {
 	data, err := p.receive()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "receive failed")
 	}
 	return protocol.Decode(data)
 }
@@ -181,7 +181,7 @@ func (p *peer) receive() ([]byte, error) {
 func (p *peer) ReceiveWithContext(ctx context.Context) (proto.Message, error) {
 	data, err := p.receiveWithContext(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "receive with context failed")
 	}
 	return protocol.Decode(data)
 }

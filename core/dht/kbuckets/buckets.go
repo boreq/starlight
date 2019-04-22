@@ -1,11 +1,12 @@
 package kbuckets
 
 import (
-	"github.com/boreq/starlight/network/node"
-	"github.com/boreq/starlight/utils"
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/boreq/starlight/network/node"
+	"github.com/boreq/starlight/utils"
 )
 
 var log = utils.GetLogger("kbuckets")

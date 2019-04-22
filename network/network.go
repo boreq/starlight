@@ -1,15 +1,16 @@
 package network
 
 import (
+	"net"
+	"sync"
+	"time"
+
 	"github.com/boreq/starlight/network/dispatcher"
 	"github.com/boreq/starlight/network/node"
 	"github.com/boreq/starlight/network/peer"
 	"github.com/boreq/starlight/utils"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
-	"net"
-	"sync"
-	"time"
 )
 
 var log = utils.GetLogger("network")
@@ -73,7 +74,7 @@ func (n *network) newConnection(ctx context.Context, conn net.Conn) (peer.Peer, 
 	p, err := peer.New(ctx, n.iden, n.address, conn)
 	if err != nil {
 		log.Debugf("newConnection: failed to init a peer: %s", err)
-		return nil, err
+		return nil, errors.Wrap(err, "could not init a peer")
 	}
 	return n.newPeer(p)
 }
@@ -88,7 +89,7 @@ func (n *network) newPeer(p peer.Peer) (peer.Peer, error) {
 	if err == nil {
 		log.Debugf("newConnection: already communicating with %x", p.Info().Id)
 		p.Close()
-		return existingPeer, err
+		return existingPeer, nil
 	}
 
 	n.peers = append(n.peers, p)
