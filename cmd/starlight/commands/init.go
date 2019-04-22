@@ -14,12 +14,12 @@ const defaultKeypairBits = 4096
 
 var initCmd = guinea.Command{
 	Options: []guinea.Option{
-		guinea.Option{
+		{
 			Name:        "f",
 			Type:        guinea.Bool,
 			Description: "Overwrite existing config",
 		},
-		guinea.Option{
+		{
 			Name:        "b",
 			Type:        guinea.Int,
 			Default:     defaultKeypairBits,
@@ -35,16 +35,16 @@ keypair.`,
 
 func runInit(c guinea.Context) error {
 	if !c.Options["f"].Bool() {
-		_, err := os.Stat(config.GetDir())
+		_, err := os.Stat(config.GetDirPath())
 		if err == nil || !os.IsNotExist(err) {
-			return errors.New("Config already exists. Use '-f' to overwrite.")
+			return errors.New("config already exists, use '-f' to overwrite")
 		}
 	}
 
 	// Generate default config.
-	utils.EnsureDirExists(config.GetDir(), true)
+	utils.EnsureDirExists(config.GetDirPath(), true)
 	conf := config.Default()
-	err := conf.Save()
+	err := conf.Save(config.GetConfigPath())
 	if err != nil {
 		return err
 	}
@@ -55,7 +55,7 @@ func runInit(c guinea.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := node.SaveLocalIdentity(iden, config.GetDir()); err != nil {
+	if err := node.SaveLocalIdentity(iden, config.GetDirPath()); err != nil {
 		return err
 	}
 

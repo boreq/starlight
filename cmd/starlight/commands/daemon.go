@@ -2,13 +2,11 @@ package commands
 
 import (
 	"github.com/boreq/guinea"
-	"github.com/boreq/starlight/config"
 	"github.com/boreq/starlight/core"
 	"github.com/boreq/starlight/core/dht"
 	"github.com/boreq/starlight/irc"
 	"github.com/boreq/starlight/local"
 	"github.com/boreq/starlight/network"
-	"github.com/boreq/starlight/network/node"
 	"golang.org/x/net/context"
 	"os"
 )
@@ -19,12 +17,12 @@ var daemonCmd = guinea.Command{
 }
 
 func daemon(c guinea.Context) error {
-	conf, err := config.Get()
+	conf, err := GetConfig()
 	if err != nil {
 		return err
 	}
 
-	iden, err := node.LoadLocalIdentity(config.GetDir())
+	iden, err := GetIdentity()
 	if err != nil {
 		return err
 	}

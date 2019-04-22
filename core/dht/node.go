@@ -2,15 +2,16 @@ package dht
 
 import (
 	"container/list"
+	"math/rand"
+	"sync"
+	"time"
+
 	"github.com/boreq/starlight/network/node"
 	"github.com/boreq/starlight/protocol/message"
 	"github.com/boreq/starlight/utils"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
-	"math/rand"
-	"sync"
-	"time"
 )
 
 func (d *dht) FindNode(ctx context.Context, id node.ID) (node.NodeInfo, error) {
@@ -18,14 +19,22 @@ func (d *dht) FindNode(ctx context.Context, id node.ID) (node.NodeInfo, error) {
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 
-	// Run the lookup procedure.
+	// Run the lookup procedure
 	nodesLists, err := d.findNode(ctx, id, true)
 	if err != nil {
 		return node.NodeInfo{}, err
 	}
-	log.Debugf("FindNode got %d result lists", len(nodesLists))
 
-	// Check if the procedure managed to locate the right node.
+	// Print the results for debug purposes
+	log.Debugf("FindNode got %d result lists", len(nodesLists))
+	for _, nodes := range nodesLists {
+		log.Debug("iterating over a node list")
+		for _, node := range nodes {
+			log.Debug("node %#v", node)
+		}
+	}
+
+	// Check if the procedure managed to locate the right node
 	for _, nodes := range nodesLists {
 		if len(nodes) > 0 && node.CompareId(nodes[0].Id, id) {
 			return nodes[0], nil
@@ -75,7 +84,11 @@ func (d *dht) lookup(ctx context.Context, id node.ID, msgFac messageFactory, bre
 		return nil, errors.New("buckets returned zero nodes")
 	}
 
-	// Split the retuned nodes into 'd' buckets randomly in order to perform
+	for _, node := range nodes {
+		log.Debugf("lookup nodes %s - %s", node.Id, node.Address)
+	}
+
+	// Split the returned nodes into 'd' buckets randomly in order to perform
 	// a lookup over d disjoint paths.
 	var buckets []*resultsList
 	for i := 0; i < paramD; i++ {
@@ -87,6 +100,12 @@ func (d *dht) lookup(ctx context.Context, id node.ID, msgFac messageFactory, bre
 	}
 	for i := range nodes {
 		buckets[i%paramD].Add(d.self.Id, &nodes[i])
+	}
+
+	for i, bucket := range buckets {
+		for _, node := range bucket.Get(paramK) {
+			log.Debugf("lookup bucket %d contains node %s", i, node.Id)
+		}
 	}
 
 	// Start the disjoint lookup procedure for each bucket.
@@ -125,22 +144,24 @@ func (d *dht) lookup(ctx context.Context, id node.ID, msgFac messageFactory, bre
 	}
 }
 
+func isInOtherBuckets(id node.ID, bucketI int, buckets []*resultsList) bool {
+	for i, bucket := range buckets {
+		if i != bucketI {
+			if bucket.Contains(id) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (d *dht) lookupDisjointPath(ctx context.Context, buckets []*resultsList, bucketsMutex *sync.Mutex, bucketI int, id node.ID, msgFac messageFactory, breakOnResult bool, resultC chan<- []node.NodeInfo) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	results := buckets[bucketI]
+	var log = log.GetLogger("lookupDisjointPath id=%s bucket=%d", id, bucketI)
 
-	isInOtherBuckets := func(id node.ID) bool {
-		for i, bucket := range buckets {
-			if i != bucketI {
-				if bucket.Contains(id) {
-					return true
-				}
-			}
-		}
-		return false
-	}
+	results := buckets[bucketI]
 
 	// Handle incoming Nodes messages.
 	go func() {
@@ -157,11 +178,14 @@ func (d *dht) lookupDisjointPath(ctx context.Context, buckets []*resultsList, bu
 					if results.WasQueried(msg.Sender.Id) {
 						for _, nd := range pMsg.Nodes {
 							ndInfo := &node.NodeInfo{Id: nd.GetId(), Address: nd.GetAddress()}
+							log.Debugf("received a response %s - %s", ndInfo.Id, ndInfo.Address)
 							if !node.CompareId(ndInfo.Id, d.self.Id) {
-								if !isInOtherBuckets(ndInfo.Id) {
+								bucketsMutex.Lock()
+								if !isInOtherBuckets(ndInfo.Id, bucketI, buckets) {
 									err := results.Add(msg.Sender.Id, ndInfo)
-									log.Debugf("lookupDisjointPath new %s, err %s", ndInfo.Id, err)
+									log.Debugf("adding a node to buckets %s, err %s", ndInfo.Id, err)
 								}
+								bucketsMutex.Unlock()
 							}
 						}
 					}
@@ -205,26 +229,31 @@ func (d *dht) lookupDisjointPath(ctx context.Context, buckets []*resultsList, bu
 
 			ndInfo := node.NodeInfo{Id: nData.Id, Address: address.Address}
 
+			log.Debugf("attempting to contact %s", ndInfo.Id)
+
 			// Send the lookup message to the node.
 			p, err := d.netDial(ndInfo)
 			if err == nil {
 				if breakOnResult {
 					if node.CompareId(p.Info().Id, id) {
-						address.Valid = true
+						nData.MarkAddressValid(address.Address)
 						resultC <- results.Results()
 						return
 					}
 				}
 				counterSent++
 				msg := msgFac(id)
-				log.Debugf("findNode send to %s", ndInfo.Id)
+				log.Debugf("send to %s", ndInfo.Id)
 				go p.SendWithContext(ctx, msg)
+			} else {
+				log.Debugf("netDial err %s", err)
 			}
 
 			// Check if this node is reachable using this address.
 			go func(nData *nodeData) {
 				err = d.netCheckOnline(ctx, ndInfo)
 				if err == nil {
+					log.Debugf("findNode mark address valid %s", address.Address)
 					if err := nData.MarkAddressValid(address.Address); err != nil {
 						log.Debugf("error marking address as valid: %s", err)
 					}
@@ -400,7 +429,7 @@ func (nd *nodeData) MarkAddressProcessed(address string) error {
 	return errors.New("address not found")
 }
 
-// MarkAddressProcessed marks an address processed. Address can't be returned
+// MarkAddressValid marks an address as valid. Address can't be returned
 // using a pointer and marked as processed directly due to race conditions.
 func (nd *nodeData) MarkAddressValid(address string) error {
 	nd.lock.Lock()

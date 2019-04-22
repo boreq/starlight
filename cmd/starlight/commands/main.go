@@ -6,7 +6,7 @@ import (
 
 var MainCmd = guinea.Command{
 	Options: []guinea.Option{
-		guinea.Option{
+		{
 			Name:        "version",
 			Type:        guinea.Bool,
 			Description: "Display version",

@@ -26,39 +26,39 @@ type Config struct {
 	savedConfig
 }
 
-func (conf *Config) filePath() string {
-	return path.Join(GetDir(), "config.json")
-}
-
-func (conf *Config) Load() error {
-	content, e := ioutil.ReadFile(conf.filePath())
-	if os.IsNotExist(e) {
+// Load loads the specified config file into this struct. Those parameters
+// (fields) which are present in that file are overwritten and the rest is
+// left untouched.
+func (conf *Config) Load(path string) error {
+	content, err := ioutil.ReadFile(path)
+	if os.IsNotExist(err) {
 		return nil
 	}
 	return json.Unmarshal(content, conf)
 }
 
-func (conf *Config) Save() error {
+// Save saves this struct into the specified config file.
+func (conf *Config) Save(path string) error {
 	jsonEncoded, err := json.MarshalIndent(conf.savedConfig, "", "	")
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(conf.filePath(), jsonEncoded, 0600)
+	err = ioutil.WriteFile(path, jsonEncoded, 0600)
 	return err
 }
 
 // Returns already loaded ready-to-use config.
-func Get() (*Config, error) {
+func Get(path string) (*Config, error) {
 	conf := Default()
-	e := conf.Load()
+	e := conf.Load(path)
 	if e != nil {
-		return nil, errors.New("Unable to load config")
+		return nil, errors.New("unable to load config")
 	}
 	return conf, nil
 }
 
-// Returns the directory in which config and data should be saved.
-func GetDir() string {
+// GetDir returns the directory in which config and data should be saved.
+func GetDirPath() string {
 	// Overriden by env variable
 	if envDir := os.Getenv(ConfigEnvVar); envDir != "" {
 		return envDir
@@ -68,6 +68,12 @@ func GetDir() string {
 	user, _ := user.Current()
 	return path.Join(user.HomeDir, ".starlight")
 }
+
+// GetConfigPath Returns the file in which the config should be saved.
+func GetConfigPath() string {
+	return path.Join(GetDirPath(), "config.json")
+}
+
 
 func getDefaultBootstrap() []node.NodeInfo {
 	def := map[string]string{

@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"log"
 	"os"
 )
@@ -13,6 +14,7 @@ type Logger interface {
 	Printf(string, ...interface{})
 	Debug(...interface{})
 	Debugf(string, ...interface{})
+	GetLogger(string, ...interface{}) Logger
 }
 
 type logger struct {
@@ -28,15 +30,19 @@ func (l *logger) Printf(format string, v ...interface{}) {
 }
 
 func (l *logger) Debug(v ...interface{}) {
-	if debug {
+	if Debug {
 		l.logger.Print(v...)
 	}
 }
 
 func (l *logger) Debugf(format string, v ...interface{}) {
-	if debug {
+	if Debug {
 		l.logger.Printf(format, v...)
 	}
+}
+
+func (l *logger) GetLogger(format string, v ...interface{}) Logger {
+	return GetLogger(l.logger.Prefix() + fmt.Sprintf(format, v...))
 }
 
 // The name of the environment variable which enables displaying debug level log
@@ -44,19 +50,16 @@ func (l *logger) Debugf(format string, v ...interface{}) {
 // an empty string.
 const DebugEnvVar = "STARLIGHTDEBUG"
 
-var debug bool
+var Debug bool
 var loggers map[string]Logger
 
 func init() {
 	loggers = make(map[string]Logger)
-	debug = (os.Getenv(DebugEnvVar) != "")
+	Debug = (os.Getenv(DebugEnvVar) != "")
 }
 
 // GetLogger creates a new logger or returns an already existing logger created
 // with the given name using this method.
 func GetLogger(name string) Logger {
-	if _, ok := loggers[name]; !ok {
-		loggers[name] = &logger{log.New(os.Stdout, name+": ", 0)}
-	}
-	return loggers[name]
+	return &logger{log.New(os.Stdout, name+": ", 0)}
 }
