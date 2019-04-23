@@ -1,55 +1,91 @@
 package utils
 
-import "testing"
+import (
+	"bytes"
+	"testing"
+)
+
+var zerosLenTests = []struct {
+	a []byte
+	i int
+}{
+	{[]byte{}, 0},
+	{[]byte{0, 0}, 16},
+	{[]byte{0, 37}, 10},
+}
 
 func TestZerosLen(t *testing.T) {
-	var a []byte
-
-	a = []byte{0, 0}
-	if rw := ZerosLen(a); rw != 16 {
-		t.Fatal("First call invalid", rw)
-	}
-
-	a = []byte{0, 255}
-	if rw := ZerosLen(a); rw != 8 {
-		t.Fatal("Second call invalid", rw)
-	}
-
-	a = []byte{0, 37}
-	if rw := ZerosLen(a); rw != 10 {
-		t.Fatal("Third call invalid", rw)
-	}
-
-	a = []byte{}
-	if rw := ZerosLen(a); rw != 0 {
-		t.Fatal("Fourth call invalid", rw)
+	for _, tt := range zerosLenTests {
+		if i := ZerosLen(tt.a); i != tt.i {
+			t.Fatalf(`ZerosLen(%x), want %v, got %v`, tt.a, tt.i, i)
+		}
 	}
 }
 
+func TestXORDifferentLength(t *testing.T) {
+	a := []byte{0, 0}
+	b := []byte{0}
+	if _, err := XOR(a, b); err == nil {
+		t.Fatalf("XOR(%x, %x) did not fail despite the different length", a, b)
+	}
+}
+
+func TestXORIdenticalLength(t *testing.T) {
+	a := []byte{0}
+	b := []byte{0}
+	if _, err := XOR(a, b); err != nil {
+		t.Fatalf("XOR(%x, %x) failed despite the identical length: %s", a, b, err)
+	}
+}
+
+var xorTests = []struct {
+	a, b, c []byte
+}{
+	{[]byte{}, []byte{}, []byte{}},
+	{[]byte{0, 0}, []byte{0, 0}, []byte{0, 0}},
+	{[]byte{7, 7}, []byte{7, 7}, []byte{0, 0}},
+	{[]byte{240, 15}, []byte{240, 240}, []byte{0, 255}},
+	{[]byte{240, 15}, []byte{0, 0}, []byte{240, 15}},
+}
+
+func TestXOR(t *testing.T) {
+	for _, tt := range xorTests {
+		if c, err := XOR(tt.a, tt.b); !bytes.Equal(c, tt.c) || err != nil {
+			t.Fatalf(`XOR(%x, %x), want %v, got %v`, tt.a, tt.b, tt.c, c)
+		}
+	}
+}
+
+func TestCompareDifferentLength(t *testing.T) {
+	a := []byte{0, 0}
+	b := []byte{0}
+	if _, err := Compare(a, b); err == nil {
+		t.Fatalf("Compare(%x, %x) did not fail despite the different length", a, b)
+	}
+}
+
+func TestCompareIdenticalLength(t *testing.T) {
+	a := []byte{0}
+	b := []byte{0}
+	if _, err := Compare(a, b); err != nil {
+		t.Fatalf("Compare(%x, %x) failed despite the identical length: %s", a, b, err)
+	}
+}
+
+var compareTests = []struct {
+	a, b []byte
+	i    int
+}{
+	{[]byte{}, []byte{}, 0},
+	{[]byte{0, 0}, []byte{0, 0}, 0},
+	{[]byte{0, 37}, []byte{0, 33}, 1},
+	{[]byte{0, 33}, []byte{0, 37}, -1},
+}
+
 func TestCompare(t *testing.T) {
-	var a, b []byte
-
-	a = []byte{0, 0}
-	b = []byte{0, 0}
-	if rw, err := Compare(a, b); rw != 0 || err != nil {
-		t.Fatal("First call invalid", rw, err)
-	}
-
-	a = []byte{0, 0}
-	b = []byte{0, 10}
-	if rw, err := Compare(a, b); rw != -1 || err != nil {
-		t.Fatal("Second call invalid", rw, err)
-	}
-
-	a = []byte{0, 37}
-	b = []byte{0, 33}
-	if rw, err := Compare(a, b); rw != 1 || err != nil {
-		t.Fatal("Third call invalid", rw, err)
-	}
-
-	a = []byte{0, 0}
-	b = []byte{0}
-	if rw, err := Compare(a, b); err == nil {
-		t.Fatal("Fourth call invalid", rw, err)
+	for _, tt := range compareTests {
+		if i, err := Compare(tt.a, tt.b); i != tt.i || err != nil {
+			t.Fatalf(`Compare(%x, %x), want %v, got %v`, tt.a, tt.b, tt.i, i)
+		}
 	}
 }
