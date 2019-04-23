@@ -1,4 +1,4 @@
-all: build
+all: test build
 
 build:
 	mkdir -p _build
@@ -11,17 +11,13 @@ doc:
 	godoc -http=:6060
 
 install-tools:
-	go get -u honnef.co/go/tools/cmd/unused
-	go get -u honnef.co/go/tools/cmd/staticcheck
+	go get -v -u honnef.co/go/tools/cmd/staticcheck
 
-analyze: analyze-vet analyze-unused analyze-staticcheck
+analyze: analyze-vet analyze-staticcheck
 
 analyze-vet:
+	# go vet
 	go vet github.com/boreq/starlight/...
-
-analyze-unused:
-	# https://github.com/dominikh/go-tools/tree/master/cmd/unused
-	unused github.com/boreq/starlight/...
 
 analyze-staticcheck:
 	# https://github.com/dominikh/go-tools/tree/master/cmd/staticcheck
@@ -45,4 +41,4 @@ proto:
 clean:
 	rm -f ./main/main
 
-.PHONY: all build doc install-tools analyze analyze-vet analyze-unused analyze-staticcheck test test-verbose test-short bench proto clean
+.PHONY: all build doc install-tools analyze analyze-vet analyze-staticcheck test test-verbose test-short bench proto clean
