@@ -25,8 +25,8 @@ func TestZerosLen(t *testing.T) {
 func TestXORDifferentLength(t *testing.T) {
 	a := []byte{0, 0}
 	b := []byte{0}
-	if _, err := XOR(a, b); err == nil {
-		t.Fatalf("XOR(%x, %x) did not fail despite the different length", a, b)
+	if _, err := XOR(a, b); err != SliceLengthErr {
+		t.Fatalf("XOR(%x, %x) wrong error: %s", a, b, err)
 	}
 }
 
@@ -59,8 +59,8 @@ func TestXOR(t *testing.T) {
 func TestCompareDifferentLength(t *testing.T) {
 	a := []byte{0, 0}
 	b := []byte{0}
-	if _, err := Compare(a, b); err == nil {
-		t.Fatalf("Compare(%x, %x) did not fail despite the different length", a, b)
+	if _, err := Compare(a, b); err != SliceLengthErr {
+		t.Fatalf("Compare(%x, %x) wrong error: %s", a, b, err)
 	}
 }
 
