@@ -45,12 +45,12 @@ func (d *decoder) decode(r io.Reader, w io.Writer) error {
 	}
 	expectedHm := crypto.Digest(d.hmac, data.Bytes())
 	if !hmac.Equal(receivedHm, expectedHm) {
-		return errors.New("Invalid HMAC")
+		return errors.New("invalid HMAC")
 	}
 
 	// Decrypt payload
 	if data.Len()%d.cipher.BlockSize() != 0 {
-		return errors.New("Invalid length of the encrypted data")
+		return errors.New("invalid length of the encrypted data")
 	}
 	bufContent := data.Bytes()
 	d.cipher.CryptBlocks(bufContent, bufContent)
@@ -67,7 +67,7 @@ func (d *decoder) decode(r io.Reader, w io.Writer) error {
 		return err
 	}
 	if nonce != d.nonce {
-		return errors.New("Invalid nonce")
+		return errors.New("invalid nonce")
 	}
 	d.nonce++
 

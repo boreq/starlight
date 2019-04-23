@@ -61,7 +61,7 @@ const idCryptoPuzzleDifficulty = 5
 
 // CompareId returns true if two IDs are exactly the same.
 func CompareId(a, b ID) bool {
-	return bytes.Compare(a, b) == 0
+	return bytes.Equal(a, b)
 }
 
 // Distance calculates the distance between two nodes.
@@ -89,7 +89,7 @@ func ValidateId(id ID) bool {
 func GenerateIdentity(bits int) (*Identity, error) {
 	// Should this be placed here and not in the init command?
 	if bits < minKeyBits {
-		return nil, fmt.Errorf("Use at least %d bits to generate a key", minKeyBits)
+		return nil, fmt.Errorf("use at least %d bits to generate a key", minKeyBits)
 	}
 
 	for {

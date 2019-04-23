@@ -8,7 +8,7 @@ import (
 
 // This error is returned by certain functions such as XOR when the length of
 // the provided byte slices is not equal.
-var SliceLengthErr = errors.New("Length of the slices differs")
+var ErrSliceLength = errors.New("length of the slices differs")
 
 // EnsureDirExists creates the directory if it doesn't exist. If that is
 // impossible the function returns an error or panics if the second argument is
@@ -37,7 +37,7 @@ func ZerosLen(a []byte) int {
 // XOR runs a[i] ^ b[i] on every element and returns a new slice with a result.
 func XOR(a, b []byte) ([]byte, error) {
 	if len(a) != len(b) {
-		return nil, SliceLengthErr
+		return nil, ErrSliceLength
 	}
 
 	rw := make([]byte, len(a))
@@ -55,7 +55,7 @@ func XOR(a, b []byte) ([]byte, error) {
 //
 func Compare(a, b []byte) (int, error) {
 	if len(a) != len(b) {
-		return 0, SliceLengthErr
+		return 0, ErrSliceLength
 	}
 
 	return bytes.Compare(a, b), nil

@@ -47,12 +47,12 @@ func GetCryptoHash(name string) (hash crypto.Hash, err error) {
 	case "SHA512":
 		hash = crypto.SHA512
 	default:
-		err = errors.New("Invalid hash name")
+		err = errors.New("invalid hash name")
 		return
 	}
 
 	if !hash.Available() {
-		err = errors.New("Hash is not available")
+		err = errors.New("hash is not available")
 	}
 	return
 }

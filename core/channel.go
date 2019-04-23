@@ -11,8 +11,8 @@ import (
 	"time"
 )
 
-var AlreadyInChannelError = errors.New("Already joined this channel")
-var NotInChannelError = errors.New("Not in the channel")
+var ErrAlreadyInChannel = errors.New("already joined this channel")
+var ErrNotInChannel = errors.New("not in the channel")
 
 // channelBootstrapInterval specifies how often bootstrapChannel is run.
 const channelBootstrapInterval = 5 * time.Minute
@@ -30,7 +30,7 @@ func (n *core) JoinChannel(name string) error {
 	defer n.channelsMutex.Unlock()
 
 	if n.inChannel(name) {
-		return AlreadyInChannelError
+		return ErrAlreadyInChannel
 	} else {
 		ch := channel.NewChannel(n.ctx, n.ident.Id, name)
 		go n.runBootstrapChannel(ch.Ctx, channelBootstrapInterval, ch)
@@ -52,7 +52,7 @@ func (n *core) PartChannel(name string) error {
 			return err
 		}
 	}
-	return NotInChannelError
+	return ErrNotInChannel
 }
 
 func (n *core) ListChannels() []string {

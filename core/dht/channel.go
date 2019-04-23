@@ -158,7 +158,7 @@ func (d *dht) getChannel(ctx context.Context, id []byte) ([]*message.StoreChanne
 	case results := <-result:
 		return results, nil
 	case <-ctx.Done():
-		return nil, errors.New("Key not found")
+		return nil, errors.New("key not found")
 	}
 }
 
@@ -166,7 +166,7 @@ func (d *dht) getChannel(ctx context.Context, id []byte) ([]*message.StoreChanne
 func (d *dht) handleStoreChannelMsg(ctx context.Context, sender node.NodeInfo, msg *message.StoreChannel) error {
 	if node.CompareId(msg.GetNodeId(), d.self.Id) {
 		log.Debugf("Ignoring my own store channel message")
-		return errors.New("Received my own message")
+		return errors.New("received my own message")
 	}
 
 	err := d.validateStoreChannelMessage(ctx, msg)
@@ -190,7 +190,7 @@ func (d *dht) handleStoreChannelMsg(ctx context.Context, sender node.NodeInfo, m
 func (d *dht) handleFindChannelMsg(ctx context.Context, sender node.NodeInfo, msg *message.FindChannel) error {
 	id := msg.GetChannelId()
 	if !channel.ValidateId(id) {
-		return errors.New("Invalid id")
+		return errors.New("invalid id")
 	}
 
 	go d.disp.Dispatch(sender, msg)
@@ -244,19 +244,19 @@ const maxStoreChannelMessageAge = 5 * time.Minute
 // invalid and should not be processed (stored).
 func (d *dht) validateStoreChannelMessage(ctx context.Context, msg *message.StoreChannel) error {
 	if !node.ValidateId(msg.GetNodeId()) {
-		return errors.New("Invalid node id")
+		return errors.New("invalid node id")
 	}
 
 	if !channel.ValidateId(msg.GetChannelId()) {
-		return errors.New("Invalid channel id")
+		return errors.New("invalid channel id")
 	}
 
 	t := time.Unix(msg.GetTimestamp(), 0)
 	if t.After(time.Now().UTC().Add(maxStoreChannelMessageFutureAge)) {
-		return errors.New("Timestamp is too far in the future")
+		return errors.New("timestamp is too far in the future")
 	}
 	if t.Before(time.Now().UTC().Add(-maxStoreChannelMessageAge)) {
-		return errors.New("Message is too old")
+		return errors.New("message is too old")
 	}
 
 	// Confirm the signature.

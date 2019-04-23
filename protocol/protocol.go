@@ -11,7 +11,7 @@ import (
 )
 
 var log = utils.GetLogger("protocol")
-var UnknownMessageTypeError = errors.New("Unknown message type")
+var ErrUnknownMessageType = errors.New("unknown message type")
 
 // Encode converts a protobuf message into its wire format.
 func Encode(msg proto.Message) ([]byte, error) {
@@ -79,7 +79,7 @@ func Decode(data []byte) (proto.Message, error) {
 		msg = &message.FindChannel{}
 	default:
 		log.Debugf("Decode: unknown message type %d", cmd)
-		return nil, UnknownMessageTypeError
+		return nil, ErrUnknownMessageType
 	}
 	err := proto.Unmarshal(buf.Bytes(), msg)
 	return msg, err

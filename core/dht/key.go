@@ -86,7 +86,7 @@ func (d *dht) getPubKeyLocally(id node.ID) (crypto.PublicKey, error) {
 		return d.self.PubKey, nil
 	}
 
-	return nil, errors.New("Public key not found locally")
+	return nil, errors.New("public key not found locally")
 }
 
 // getPubKey attempts to return a public key of a node by performing a full
@@ -148,7 +148,7 @@ func (d *dht) getPubKey(ctx context.Context, id node.ID) (crypto.PublicKey, erro
 		}
 		return key, nil
 	case <-ctx.Done():
-		return nil, errors.New("Key not found")
+		return nil, errors.New("key not found")
 	}
 }
 
@@ -173,7 +173,7 @@ func (d *dht) handleFindPubKeyMsg(ctx context.Context, sender node.NodeInfo, msg
 	// Sanity.
 	id := msg.GetId()
 	if !node.ValidateId(id) {
-		return errors.New("Invalid id")
+		return errors.New("invalid id")
 	}
 
 	var response proto.Message = nil

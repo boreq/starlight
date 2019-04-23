@@ -30,7 +30,7 @@ func StretchKey(secret, salt []byte, hashName, cipherName string) (a, b Stretche
 		keySize = 16
 		blockSize = aes.BlockSize
 	default:
-		err = errors.New("Invalid cipher name")
+		err = errors.New("invalid cipher name")
 		return
 	}
 

@@ -65,7 +65,7 @@ func NewPublicKey(data []byte) (PublicKey, error) {
 	}
 	key, ok := decodedKey.(*rsa.PublicKey)
 	if !ok {
-		return nil, errors.New("This is not a RSA key.")
+		return nil, errors.New("this is not a RSA key")
 	}
 	return rsaPublicKey{key}, nil
 }

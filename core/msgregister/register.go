@@ -38,7 +38,7 @@ func (r *Register) Insert(id []byte, t time.Time) error {
 	r.cleanup()
 	e := r.find(id)
 	if e != nil {
-		return errors.New("Already in the register")
+		return errors.New("already in the register")
 	}
 
 	newEntry := entry{

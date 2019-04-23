@@ -71,11 +71,11 @@ func (b *bucket) Unresponsive(id node.ID, address string) {
 func (b *bucket) TryReplaceLast(c *bucket) error {
 	el := b.entries.Back()
 	if el == nil {
-		return errors.New("The bucket is empty")
+		return errors.New("the bucket is empty")
 	}
 	entry := el.Value.(*bucketEntry)
 	if !entry.Stale {
-		return errors.New("The last entry is not stale")
+		return errors.New("the last entry is not stale")
 	}
 	nd, err := c.DropFirst()
 	if err != nil {
@@ -90,7 +90,7 @@ func (b *bucket) TryReplaceLast(c *bucket) error {
 func (b *bucket) DropLast() (*node.NodeInfo, error) {
 	el := b.entries.Back()
 	if el == nil {
-		return nil, errors.New("Bucket is empty")
+		return nil, errors.New("bucket is empty")
 	}
 	entry := b.entries.Remove(el).(*bucketEntry).Node
 	return &entry, nil
@@ -100,7 +100,7 @@ func (b *bucket) DropLast() (*node.NodeInfo, error) {
 func (b *bucket) DropFirst() (*node.NodeInfo, error) {
 	el := b.entries.Front()
 	if el == nil {
-		return nil, errors.New("Bucket is empty")
+		return nil, errors.New("bucket is empty")
 	}
 	entry := b.entries.Remove(el).(*bucketEntry).Node
 	return &entry, nil

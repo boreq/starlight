@@ -49,7 +49,7 @@ func (b *bucket) Remove(id node.ID) error {
 			return nil
 		}
 	}
-	return errors.New("Entry not found")
+	return errors.New("entry not found")
 }
 
 // Contains checks if an entry already exists in the bucket.

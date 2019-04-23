@@ -28,7 +28,7 @@ func (w *wrapper) AddLayer(layer Layer) {
 
 func (w *wrapper) Send(data []byte) error {
 	if len(w.layers) == 0 {
-		return errors.New("No layers")
+		return errors.New("no layers")
 	}
 
 	var in io.Reader = bytes.NewBuffer(data)
@@ -44,7 +44,7 @@ func (w *wrapper) Send(data []byte) error {
 
 func (w *wrapper) Receive() ([]byte, error) {
 	if len(w.layers) == 0 {
-		return nil, errors.New("No layers")
+		return nil, errors.New("no layers")
 	}
 
 	var in io.Reader = w.reader

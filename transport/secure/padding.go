@@ -37,7 +37,7 @@ func stripPadding(buf *bytes.Buffer) error {
 
 	// Sanity
 	if int(paddingSize) > buf.Len() {
-		return errors.New("Padding size bigger than the data size")
+		return errors.New("padding size bigger than the data size")
 	}
 
 	// Strip padding

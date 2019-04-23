@@ -96,14 +96,14 @@ func (n *core) handlePrivateMessageMsg(msg *message.PrivateMessage, sender node.
 
 func (n *core) SendChannelMessage(ctx context.Context, channelName string, text string) error {
 	if len(text) > maxChannelMessageLength {
-		return errors.New("Message is too long")
+		return errors.New("message is too long")
 	}
 
 	// Are we even in the channel?
 	channelId := channel.CreateId(channelName)
 	ch := n.getChannel(channelId)
 	if ch == nil {
-		return NotInChannelError
+		return ErrNotInChannel
 	}
 
 	// Create the message.
@@ -125,7 +125,7 @@ func (n *core) SendChannelMessage(ctx context.Context, channelName string, text 
 
 func (n *core) SendMessage(ctx context.Context, id node.ID, text string) error {
 	if len(text) > maxPrivateMessageLength {
-		return errors.New("Message is too long")
+		return errors.New("message is too long")
 	}
 
 	p, err := n.dht.Dial(ctx, id)
@@ -214,27 +214,27 @@ const maxPrivateMessageLength = 500
 func (n *core) validateChannelMessage(ctx context.Context, msg *message.ChannelMessage) error {
 	// IDs.
 	if !channel.ValidateId(msg.GetChannelId()) {
-		return errors.New("Invalid channel id")
+		return errors.New("invalid channel id")
 	}
 
 	if !node.ValidateId(msg.GetNodeId()) {
-		return errors.New("Invalid node id")
+		return errors.New("invalid node id")
 	}
 
 	// Timestamp.
 	t := time.Unix(msg.GetTimestamp(), 0)
 
 	if t.After(time.Now().UTC().Add(maxChannelMessageFutureAge)) {
-		return errors.New("Timestamp is too far in the future")
+		return errors.New("timestamp is too far in the future")
 	}
 
 	if t.Before(time.Now().UTC().Add(-maxChannelMessageAge)) {
-		return errors.New("Message is too old")
+		return errors.New("message is too old")
 	}
 
 	// Text.
 	if len(msg.GetText()) > maxChannelMessageLength {
-		return errors.New("Message is too long")
+		return errors.New("message is too long")
 	}
 
 	// Nonce and signature.
@@ -261,16 +261,16 @@ func (n *core) validateChannelMessage(ctx context.Context, msg *message.ChannelM
 func (n *core) validatePrivateMessage(msg *message.PrivateMessage, sender node.ID) error {
 	// IDs.
 	if !node.CompareId(n.ident.Id, msg.GetTargetId()) {
-		return errors.New("Invalid target id")
+		return errors.New("invalid target id")
 	}
 
 	if !node.CompareId(sender, msg.GetNodeId()) {
-		return errors.New("Invalid node id")
+		return errors.New("invalid node id")
 	}
 
 	// Text.
 	if len(msg.GetText()) > maxPrivateMessageLength {
-		return errors.New("Message is too long")
+		return errors.New("message is too long")
 	}
 
 	// Nonce.
@@ -332,7 +332,7 @@ func validateCryptoPuzzle(nonce uint64, data []byte, difficulty int) error {
 	if numBits >= difficulty {
 		return nil
 	}
-	return errors.New("Invalid puzzle")
+	return errors.New("invalid puzzle")
 }
 
 // solveCryptoPuzzle attmpts to find a nonce which when concatenated with
@@ -344,7 +344,7 @@ func solveCryptoPuzzle(nonce *uint64, data []byte, difficulty int) error {
 	var bs []byte = make([]byte, 8)
 
 	// Try to solve the puzzle.
-	for *nonce = 0; *nonce <= math.MaxUint64; *nonce++ {
+	for *nonce = 0; *nonce < math.MaxUint64; *nonce++ {
 		hash.Reset()
 		hash.Write(data)
 		binary.BigEndian.PutUint64(bs, *nonce)
@@ -359,7 +359,7 @@ func solveCryptoPuzzle(nonce *uint64, data []byte, difficulty int) error {
 
 	// Make sure that it was solved correctly and the loop didn't simply end.
 	if !solved {
-		return errors.New("The crypto puzzle could not be solved for this message")
+		return errors.New("the crypto puzzle could not be solved for this message")
 	}
 	return nil
 }

@@ -51,10 +51,8 @@ func (l *logger) GetLogger(format string, v ...interface{}) Logger {
 const DebugEnvVar = "STARLIGHTDEBUG"
 
 var Debug bool
-var loggers map[string]Logger
 
 func init() {
-	loggers = make(map[string]Logger)
 	Debug = (os.Getenv(DebugEnvVar) != "")
 }
 

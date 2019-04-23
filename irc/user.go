@@ -20,10 +20,8 @@ func NewUser(ctx context.Context, conn net.Conn) *User {
 	}
 	// Close the connection after the context is closed.
 	go func() {
-		select {
-		case <-ctx.Done():
-			conn.Close()
-		}
+		<-ctx.Done()
+		conn.Close()
 	}()
 	return rv
 }
@@ -55,7 +53,7 @@ func (u *User) Receive(ctx context.Context) (*protocol.Message, error) {
 	select {
 	case msg, ok := <-u.in:
 		if !ok {
-			return nil, errors.New("Channel closed")
+			return nil, errors.New("channel closed")
 		}
 		return msg, nil
 	case <-u.ctx.Done():

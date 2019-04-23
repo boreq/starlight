@@ -33,7 +33,7 @@ func cmdEncode(msg proto.Message) (uint32, error) {
 	rw, ok := cmdMap[typ]
 	if !ok {
 		log.Debugf("cmdEncode: unknown message type %T", msg)
-		return 0, UnknownMessageTypeError
+		return 0, ErrUnknownMessageType
 	}
 	return rw, nil
 }

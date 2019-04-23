@@ -31,7 +31,7 @@ func GetCurve(name string) (elliptic.Curve, error) {
 	case "P521":
 		return elliptic.P521(), nil
 	default:
-		return nil, errors.New("Invalid curve name")
+		return nil, errors.New("invalid curve name")
 	}
 }
 
@@ -50,7 +50,7 @@ func (key *ephemeralKey) GenerateSharedSecret(pub []byte) ([]byte, error) {
 	// Bug in Go < 1.5, the point is not validated. Fixed in
 	// d86b8d34d069c3895721ba47cac664f8bbf2b8ad
 	if x == nil || y == nil || !key.curve.IsOnCurve(x, y) {
-		return nil, errors.New("Invalid public key")
+		return nil, errors.New("invalid public key")
 	}
 	secretX, _ := key.curve.ScalarMult(x, y, key.priv)
 	return secretX.Bytes(), nil

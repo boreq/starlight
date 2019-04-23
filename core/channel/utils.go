@@ -18,8 +18,5 @@ func CreateId(name string) []byte {
 
 // ValidateId returns true if the given channel id is valid.
 func ValidateId(id []byte) bool {
-	if len(id) != IdLength {
-		return false
-	}
-	return true
+	return len(id) == IdLength
 }

@@ -52,7 +52,7 @@ func (d *Datastore) Get(key []byte) (interface{}, error) {
 	sKey := convertKey(key)
 	item, ok := d.items[sKey]
 	if !ok {
-		return nil, errors.New("Not found")
+		return nil, errors.New("not found")
 	} else {
 		return item.data, nil
 	}
