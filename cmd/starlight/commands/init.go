@@ -42,7 +42,7 @@ func runInit(c guinea.Context) error {
 	}
 
 	// Generate default config.
-	utils.EnsureDirExists(config.GetDirPath(), true)
+	utils.EnsureDirExists(config.GetDirPath())
 	conf := config.Default()
 	err := conf.Save(config.GetConfigPath())
 	if err != nil {

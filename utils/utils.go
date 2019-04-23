@@ -8,15 +8,11 @@ import (
 // EnsureDirExists creates the directory if it doesn't exist. If that is
 // impossible the function returns an error or panics if the second argument is
 // true.
-func EnsureDirExists(path string, shouldPanic bool) error {
+func EnsureDirExists(path string) {
 	err := os.MkdirAll(path, 0700)
 	if err != nil && !os.IsExist(err) {
-		if shouldPanic {
-			panic(err)
-		}
-		return err
+		panic(err)
 	}
-	return nil
 }
 
 // ZerosLen returns a number of consecutive zero bits in the slice counting from
