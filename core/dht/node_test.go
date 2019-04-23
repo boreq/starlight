@@ -31,7 +31,10 @@ func TestGetUnprocessedAddress(t *testing.T) {
 	if data1.Address != "addr2" {
 		t.Fatal("addr2 had more votes")
 	}
-	data1.Processed = true
+
+	if err := nd.MarkAddressProcessed(data1.Address); err != nil {
+		t.Fatalf("error marking as processed %s", err)
+	}
 
 	data2, err := nd.GetUnprocessedAddress()
 	if err != nil {
