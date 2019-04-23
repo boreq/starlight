@@ -14,10 +14,23 @@ import (
 	"golang.org/x/net/context"
 )
 
+// findNodeTimeout specifies the overall timeout of a single find node
+// procedure.If the entire procedure takes more time it will timeout and return
+// an error although it can still return a list of useful nodes.
+const findNodeTimeout = 20 * time.Second
+
+// findNodeLoopInterval specifies an interval between batches of find node
+// messages sent out by a find node procedure. The procedure iteratively sends
+// out new find node messages and waits for the responses for an amount of time
+// specified by the findNodeLoopInterval between iterations.
+const findNodeLoopInterval = 500 * time.Millisecond
+
 func (d *dht) FindNode(ctx context.Context, id node.ID) (node.NodeInfo, error) {
-	log.Debugf("FindNode %s", id)
-	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, findNodeTimeout)
 	defer cancel()
+
+	var log = log.GetLogger("FindNode id=%s", id)
+	log.Debug("starting")
 
 	// Run the lookup procedure
 	nodesLists, err := d.findNode(ctx, id, true)
@@ -26,11 +39,10 @@ func (d *dht) FindNode(ctx context.Context, id node.ID) (node.NodeInfo, error) {
 	}
 
 	// Print the results for debug purposes
-	log.Debugf("FindNode got %d result lists", len(nodesLists))
-	for _, nodes := range nodesLists {
-		log.Debug("iterating over a node list")
+	log.Debugf("got %d result lists", len(nodesLists))
+	for i, nodes := range nodesLists {
 		for _, node := range nodes {
-			log.Debug("node %#v", node)
+			log.Debug("nodelist %d: %#v", i, node)
 		}
 	}
 
@@ -65,12 +77,13 @@ func (d *dht) findNode(ctx context.Context, id node.ID, breakOnResult bool) ([][
 // lookup attempts to locate k closest nodes to a given key (node id). The
 // procedure is performed over disjoint paths. If breakOnResult is set this
 // function will return results the moment a node that we are looking for is
-// found in any of the lists.
+// found in any of the lists (and it is possible to communicate with it).
 func (d *dht) lookup(ctx context.Context, id node.ID, msgFac messageFactory, breakOnResult bool) ([][]node.NodeInfo, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	log.Debugf("lookup %s", id)
+	var log = log.GetLogger("lookup id=%s", id)
+	log.Debug("starting")
 
 	// Register that the lookup was performed to avoid refreshing the bucket
 	// that this node falls into during the bootstrap procedure.
@@ -85,7 +98,7 @@ func (d *dht) lookup(ctx context.Context, id node.ID, msgFac messageFactory, bre
 	}
 
 	for _, node := range nodes {
-		log.Debugf("lookup nodes %s - %s", node.Id, node.Address)
+		log.Debugf("nodes %s - %s", node.Id, node.Address)
 	}
 
 	// Split the returned nodes into 'd' buckets randomly in order to perform
@@ -104,7 +117,7 @@ func (d *dht) lookup(ctx context.Context, id node.ID, msgFac messageFactory, bre
 
 	for i, bucket := range buckets {
 		for _, node := range bucket.Get(paramK) {
-			log.Debugf("lookup bucket %d contains node %s", i, node.Id)
+			log.Debugf("bucket %d contains node %s", i, node.Id)
 		}
 	}
 
@@ -160,6 +173,7 @@ func (d *dht) lookupDisjointPath(ctx context.Context, buckets []*resultsList, bu
 	defer cancel()
 
 	var log = log.GetLogger("lookupDisjointPath id=%s bucket=%d", id, bucketI)
+	log.Debug("starting")
 
 	results := buckets[bucketI]
 
@@ -283,7 +297,7 @@ func (d *dht) lookupDisjointPath(ctx context.Context, buckets []*resultsList, bu
 		case <-ctx.Done():
 			resultC <- results.Results()
 			return
-		case <-time.After(1 * time.Second):
+		case <-time.After(findNodeLoopInterval):
 		}
 	}
 }
