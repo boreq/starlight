@@ -1,8 +1,11 @@
+BUILD_DIRECTORY=_build
+BUILD_FILE=${BUILD_DIRECTORY}/starlight
+
 all: test build
 
 build:
-	mkdir -p _build
-	go build -o ./_build/starlight ./cmd/starlight
+	mkdir -p ${BUILD_DIRECTORY}
+	go build -o ${BUILD_FILE} ./cmd/starlight
 
 doc:
 	@echo "http://localhost:6060/pkg/github.com/boreq/starlight/"
@@ -39,6 +42,6 @@ proto:
 	protoc --proto_path="protocol/message" --go_out="protocol/message" protocol/message/message.proto
 
 clean:
-	rm -f ./main/main
+	rm -rf ${BUILD_DIRECTORY}
 
 .PHONY: all build doc install-tools analyze analyze-vet analyze-staticcheck test test-verbose test-short bench proto clean
