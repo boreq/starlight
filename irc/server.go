@@ -6,15 +6,16 @@ package irc
 import (
 	"container/list"
 	"fmt"
+	"net"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/boreq/starlight/core"
 	"github.com/boreq/starlight/irc/protocol"
 	"github.com/boreq/starlight/network/node"
 	"github.com/boreq/starlight/utils"
 	"golang.org/x/net/context"
-	"net"
-	"strings"
-	"sync"
-	"time"
 )
 
 var log = utils.GetLogger("irc")
@@ -105,6 +106,8 @@ func (s *Server) runLoop(ctx context.Context, user *User) {
 			s.handlerPrivmsg(ctx, user, msg)
 		case "JOIN":
 			s.handlerJoin(ctx, user, msg)
+		case "PART":
+			s.handlerPart(ctx, user, msg)
 		}
 	}
 }
@@ -209,11 +212,44 @@ func (s *Server) handlerJoin(ctx context.Context, user *User, msg *protocol.Mess
 	}
 
 	channelName := msg.Params[0]
-	err := s.core.JoinChannel(channelName)
-	if err == nil {
+	if err := s.core.JoinChannel(channelName); err != nil {
+		if err != core.ErrAlreadyInChannel {
+			user.Send(ctx, s.makeErrorMessage(err))
+		}
+	} else {
 		s.usersMutex.Lock()
 		defer s.usersMutex.Unlock()
 		join := s.makeUserMessage(s.nick, "JOIN", []string{channelName})
+		s.sendToAll(ctx, join)
+	}
+}
+
+func (s *Server) handlerPart(ctx context.Context, user *User, msg *protocol.Message) {
+	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+
+	if len(msg.Params) < 1 {
+		err := s.makeServerReply(protocol.ERR_NEEDMOREPARAMS,
+			[]string{msg.Params[0], "Not enough parameters"},
+		)
+		user.Send(ctx, err)
+		return
+	}
+
+	channelName := msg.Params[0]
+	if err := s.core.PartChannel(channelName); err != nil {
+		if err == core.ErrNotInChannel {
+			reply := s.makeServerReply(protocol.ERR_NOTONCHANNEL,
+				[]string{msg.Params[0], "You're not on that channel"},
+			)
+			user.Send(ctx, reply)
+		} else {
+			user.Send(ctx, s.makeErrorMessage(err))
+		}
+	} else {
+		s.usersMutex.Lock()
+		defer s.usersMutex.Unlock()
+		join := s.makeUserMessage(s.nick, "PART", []string{channelName})
 		s.sendToAll(ctx, join)
 	}
 }

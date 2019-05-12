@@ -2,6 +2,7 @@ package irc
 
 import (
 	"fmt"
+
 	"github.com/boreq/starlight/irc/protocol"
 	"golang.org/x/net/context"
 )
@@ -19,6 +20,16 @@ func (s *Server) makeServerMessage(command string, params []string) *protocol.Me
 		Prefix:  "starlight",
 		Command: command,
 		Params:  params,
+	}
+}
+
+// makeErrorMessage creates a message used to send information about various
+// errors not specified by the protocol to the user.
+func (s *Server) makeErrorMessage(err error) *protocol.Message {
+	return &protocol.Message{
+		Prefix:  "starlight",
+		Command: "NOTICE",
+		Params:  []string{s.nick, fmt.Sprintf("Error: %s", err)},
 	}
 }
 
