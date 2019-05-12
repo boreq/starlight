@@ -3,11 +3,12 @@ package config
 import (
 	"encoding/json"
 	"errors"
-	"github.com/boreq/starlight/network/node"
 	"io/ioutil"
 	"os"
 	"os/user"
 	"path"
+
+	"github.com/boreq/starlight/network/node"
 )
 
 // The name of the environment variable which specifies the location of the
@@ -74,7 +75,6 @@ func GetConfigPath() string {
 	return path.Join(GetDirPath(), "config.json")
 }
 
-
 func getDefaultBootstrap() []node.NodeInfo {
 	def := map[string]string{
 		"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855": "address:1836",
@@ -95,7 +95,7 @@ func Default() *Config {
 	conf := &Config{
 		savedConfig{
 			ListenAddress:     ":1836",
-			IRCGatewayAddress: ":6667",
+			IRCGatewayAddress: "127.0.0.1:6667",
 			BootstrapNodes:    getDefaultBootstrap(),
 		},
 	}
