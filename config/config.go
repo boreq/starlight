@@ -5,15 +5,17 @@ import (
 	"errors"
 	"io/ioutil"
 	"os"
-	"os/user"
 	"path"
 
 	"github.com/boreq/starlight/network/node"
+	"github.com/shibukawa/configdir"
 )
 
 // The name of the environment variable which specifies the location of the
 // config directory.
 const ConfigEnvVar = "STARLIGHTPATH"
+
+const dataSubdirectoryName = "starlight"
 
 // This part of the config structure is saved in the config file in JSON format.
 type savedConfig struct {
@@ -58,21 +60,22 @@ func Get(path string) (*Config, error) {
 	return conf, nil
 }
 
-// GetDir returns the directory in which config and data should be saved.
-func GetDirPath() string {
+// GetConfigDirPath returns the directory in which the config should be saved.
+func GetConfigDirPath() string {
 	// Overriden by env variable
 	if envDir := os.Getenv(ConfigEnvVar); envDir != "" {
 		return envDir
 	}
 
 	// Default directory in $HOME
-	user, _ := user.Current()
-	return path.Join(user.HomeDir, ".starlight")
+	configDirs := configdir.New("", dataSubdirectoryName)
+	folders := configDirs.QueryFolders(configdir.Global)
+	return folders[0].Path
 }
 
 // GetConfigPath Returns the file in which the config should be saved.
 func GetConfigPath() string {
-	return path.Join(GetDirPath(), "config.json")
+	return path.Join(GetConfigDirPath(), "config.json")
 }
 
 func getDefaultBootstrap() []node.NodeInfo {

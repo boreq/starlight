@@ -1,10 +1,11 @@
 package commands
 
 import (
+	"net/rpc"
+
 	"github.com/boreq/starlight/config"
 	"github.com/boreq/starlight/local"
 	"github.com/boreq/starlight/network/node"
-	"net/rpc"
 )
 
 func GetClient() (*rpc.Client, error) {
@@ -23,6 +24,6 @@ func GetConfig() (*config.Config, error) {
 }
 
 func GetIdentity() (*node.Identity, error) {
-	path := config.GetDirPath()
+	path := config.GetConfigDirPath()
 	return node.LoadLocalIdentity(path)
 }

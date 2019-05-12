@@ -3,11 +3,12 @@ package commands
 import (
 	"errors"
 	"fmt"
+	"os"
+
 	"github.com/boreq/guinea"
 	"github.com/boreq/starlight/config"
 	"github.com/boreq/starlight/network/node"
 	"github.com/boreq/starlight/utils"
-	"os"
 )
 
 const defaultKeypairBits = 4096
@@ -35,14 +36,14 @@ keypair.`,
 
 func runInit(c guinea.Context) error {
 	if !c.Options["f"].Bool() {
-		_, err := os.Stat(config.GetDirPath())
+		_, err := os.Stat(config.GetConfigDirPath())
 		if err == nil || !os.IsNotExist(err) {
 			return errors.New("config already exists, use '-f' to overwrite")
 		}
 	}
 
 	// Generate default config.
-	utils.EnsureDirExists(config.GetDirPath())
+	utils.EnsureDirExists(config.GetConfigDirPath())
 	conf := config.Default()
 	err := conf.Save(config.GetConfigPath())
 	if err != nil {
@@ -55,7 +56,7 @@ func runInit(c guinea.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := node.SaveLocalIdentity(iden, config.GetDirPath()); err != nil {
+	if err := node.SaveLocalIdentity(iden, config.GetConfigDirPath()); err != nil {
 		return err
 	}
 
