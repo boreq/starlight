@@ -123,7 +123,7 @@ func (m *ConfirmHandshake) GetSignature() []byte {
 
 type Identity struct {
 	// Address the local node is listening on.
-	ListenAddress *string `protobuf:"bytes,1,req" json:"ListenAddress,omitempty"`
+	ListenAddresses []string `protobuf:"bytes,1,rep" json:"ListenAddresses,omitempty"`
 	// Apparent address of the other side of the connection.
 	ConnectionAddress *string `protobuf:"bytes,2,req" json:"ConnectionAddress,omitempty"`
 	XXX_unrecognized  []byte  `json:"-"`
@@ -133,11 +133,11 @@ func (m *Identity) Reset()         { *m = Identity{} }
 func (m *Identity) String() string { return proto.CompactTextString(m) }
 func (*Identity) ProtoMessage()    {}
 
-func (m *Identity) GetListenAddress() string {
-	if m != nil && m.ListenAddress != nil {
-		return *m.ListenAddress
+func (m *Identity) GetListenAddresses() []string {
+	if m != nil {
+		return m.ListenAddresses
 	}
-	return ""
+	return nil
 }
 
 func (m *Identity) GetConnectionAddress() string {

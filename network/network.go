@@ -2,10 +2,12 @@ package network
 
 import (
 	"net"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/boreq/starlight/network/dispatcher"
+	natlib "github.com/boreq/starlight/network/nat"
 	"github.com/boreq/starlight/network/node"
 	"github.com/boreq/starlight/network/peer"
 	"github.com/boreq/starlight/utils"
@@ -32,6 +34,7 @@ type network struct {
 	peers   []peer.Peer
 	plock   sync.Mutex
 	disp    dispatcher.Dispatcher
+	nat     *natlib.NAT
 	address string
 }
 
@@ -43,18 +46,24 @@ func (n *network) Listen() error {
 	log.Printf("Listening on %s", n.address)
 	log.Printf("Local id %s", n.iden.Id)
 
+	// Start listening
 	listener, err := net.Listen("tcp", n.address)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not listen")
 	}
 
-	// Make sure to close the listener after the context is closed.
+	// Initialize the NAT traversal
+	if err := n.initNatTraversal(); err != nil {
+		return errors.Wrap(err, "could not init the NAT traversal")
+	}
+
+	// Make sure to close the listener after the context is closed
 	go func() {
 		<-n.ctx.Done()
 		listener.Close()
 	}()
 
-	// Run the loop accepting connections.
+	// Run the loop accepting connections
 	go func() {
 		for {
 			conn, err := listener.Accept()
@@ -71,7 +80,7 @@ func (n *network) Listen() error {
 
 // Initiates a new connection (incoming or outgoing).
 func (n *network) newConnection(ctx context.Context, conn net.Conn) (peer.Peer, error) {
-	p, err := peer.New(ctx, n.iden, n.address, conn)
+	p, err := peer.New(ctx, n.iden, n.getListeningAddresses(), conn)
 	if err != nil {
 		log.Debugf("newConnection: failed to init a peer: %s", err)
 		return nil, errors.Wrap(err, "could not init a peer")
@@ -163,7 +172,7 @@ func (n *network) CheckOnline(ctx context.Context, nd node.NodeInfo) error {
 		return errors.Wrap(err, "could not dial")
 	}
 
-	p, err := peer.New(ctx, n.iden, n.address, conn)
+	p, err := peer.New(ctx, n.iden, n.getListeningAddresses(), conn)
 	if err != nil {
 		return errors.Wrap(err, "could not create a peer")
 	}
@@ -191,4 +200,38 @@ func (n *network) findActive(id node.ID) (peer.Peer, error) {
 		}
 	}
 	return nil, errors.New("Peer not found")
+}
+
+func (n *network) initNatTraversal() error {
+	internalListeningPort, err := n.getInternalListeningPort()
+	if err != nil {
+		return errors.Wrap(err, "could not get the listening port")
+	}
+
+	nat, err := natlib.New(n.ctx, internalListeningPort)
+	if err != nil {
+		return errors.Wrap(err, "could not establish NAT piercing")
+	}
+	n.nat = nat
+	return nil
+}
+
+func (n *network) getInternalListeningPort() (int, error) {
+	_, port, err := net.SplitHostPort(n.address)
+	if err != nil {
+		return 0, errors.Wrap(err, "split host port failed")
+	}
+	return strconv.Atoi(port)
+}
+
+func (n *network) getListeningAddresses() []string {
+	var addresses []string
+	addresses = append(addresses, n.address)
+	if address, err := n.nat.GetAddress(); err != nil {
+		log.Debugf("get listening addresses error: %s", err)
+	} else {
+		log.Debugf("external listening addresses is: %s", address)
+		addresses = append(addresses, address)
+	}
+	return addresses
 }

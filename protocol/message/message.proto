@@ -1,3 +1,5 @@
+syntax = "proto2";
+
 message Init {
     required bytes PubKey = 1;
     required bytes Nonce = 2;
@@ -17,7 +19,7 @@ message ConfirmHandshake {
 
 message Identity {
     // Address the local node is listening on.
-    required string ListenAddress = 1;
+    repeated string ListenAddresses = 1;
     // Apparent address of the other side of the connection.
     required string ConnectionAddress = 2;
 }

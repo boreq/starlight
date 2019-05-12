@@ -340,12 +340,12 @@ func (p *peer) handshake(ctx context.Context, iden node.Identity) error {
 	return nil
 }
 
-func (p *peer) identify(ctx context.Context, listenAddr string) error {
+func (p *peer) identify(ctx context.Context, listenAddresses []string) error {
 	// Form Identity message.
 	remoteAddr := p.conn.RemoteAddr().String()
 
 	localIdentify := &message.Identity{
-		ListenAddress:     &listenAddr,
+		ListenAddresses:   listenAddresses,
 		ConnectionAddress: &remoteAddr,
 	}
 
@@ -360,6 +360,6 @@ func (p *peer) identify(ctx context.Context, listenAddr string) error {
 	}
 
 	// Process Identity message.
-	p.listenAddr = remoteIdentify.GetListenAddress()
+	p.listenAddr = remoteIdentify.GetListenAddresses()
 	return nil
 }

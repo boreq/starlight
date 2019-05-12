@@ -35,7 +35,7 @@ var log = utils.GetLogger("peer")
 // function accepts the identity of the local node and the listen address of
 // the local node (which is used to extract the port which the local node is
 // listening on).
-func New(ctx context.Context, iden node.Identity, listenAddress string, conn net.Conn) (Peer, error) {
+func New(ctx context.Context, iden node.Identity, listenAddresses []string, conn net.Conn) (Peer, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	p := &peer{
 		ctx:    ctx,
@@ -54,7 +54,7 @@ func New(ctx context.Context, iden node.Identity, listenAddress string, conn net
 		return nil, errors.Wrap(err, "handshake error")
 	}
 
-	if err := p.identify(hCtx, listenAddress); err != nil {
+	if err := p.identify(hCtx, listenAddresses); err != nil {
 		p.Close()
 		log.Debugf("identify error: %s", err)
 		return nil, errors.Wrap(err, "identify error")
@@ -69,7 +69,7 @@ type peer struct {
 	ctx          context.Context
 	cancel       context.CancelFunc
 	conn         net.Conn
-	listenAddr   string
+	listenAddr   []string
 	wrapper      transport.Wrapper
 	sendMutex    sync.Mutex
 	receiveMutex sync.Mutex
@@ -77,13 +77,34 @@ type peer struct {
 
 func (p *peer) Info() node.NodeInfo {
 	rHost, _, _ := net.SplitHostPort(p.conn.RemoteAddr().String())
-	_, rPort, _ := net.SplitHostPort(p.listenAddr)
+	_, rPort, _ := net.SplitHostPort(p.getAppropriateListenAddr())
 	address := net.JoinHostPort(rHost, rPort)
 
 	return node.NodeInfo{
 		Id:      p.id,
 		Address: address,
 	}
+}
+
+func (p *peer) getAppropriateListenAddr() string {
+	remoteLocal, err := addrIsLocal(p.conn.RemoteAddr().String())
+	if err == nil {
+		for _, listenAddr := range p.listenAddr {
+			reportedLocal, err := addrIsLocal(listenAddr)
+			if err != nil {
+				continue
+			}
+
+			if remoteLocal == reportedLocal {
+				return listenAddr
+			}
+		}
+	}
+
+	if len(p.listenAddr) > 0 {
+		return p.listenAddr[0]
+	}
+	return ""
 }
 
 func (p *peer) PubKey() crypto.PublicKey {
@@ -221,4 +242,24 @@ func (p *peer) receiveWithContext(ctx context.Context) (data []byte, err error) 
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
+}
+
+var localHosts = []string{
+	"",
+	"127.0.0.1",
+	"localhost",
+}
+
+func addrIsLocal(addr string) (bool, error) {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return false, err
+	}
+
+	for _, localHost := range localHosts {
+		if host == localHost {
+			return true, nil
+		}
+	}
+	return false, nil
 }
