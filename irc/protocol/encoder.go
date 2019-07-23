@@ -20,6 +20,6 @@ func (e *encoder) Encode(msg *Message) error {
 	buf := &bytes.Buffer{}
 	buf.WriteString(msg.Marshal())
 	buf.WriteString("\r\n")
-	buf.WriteTo(e.writer)
-	return nil
+	_, err := buf.WriteTo(e.writer)
+	return err
 }

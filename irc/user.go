@@ -2,9 +2,10 @@ package irc
 
 import (
 	"errors"
+	"net"
+
 	"github.com/boreq/starlight/irc/protocol"
 	"golang.org/x/net/context"
-	"net"
 )
 
 // NewUser should be used to create users. If the context closes the user will
@@ -94,7 +95,10 @@ func wrap(ctx context.Context, conn net.Conn) (<-chan *protocol.Message, chan<- 
 		for {
 			select {
 			case msg := <-out:
-				encoder.Encode(msg)
+				err := encoder.Encode(msg)
+				if err != nil {
+					log.Debugf("encode error: %s", err)
+				}
 			case <-ctx.Done():
 				return
 			}

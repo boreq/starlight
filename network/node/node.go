@@ -5,10 +5,11 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
-	lcrypto "github.com/boreq/starlight/crypto"
-	"github.com/boreq/starlight/utils"
 	"io/ioutil"
 	"path"
+
+	lcrypto "github.com/boreq/starlight/crypto"
+	"github.com/boreq/starlight/utils"
 )
 
 type ID []byte
@@ -132,15 +133,19 @@ func SaveLocalIdentity(iden *Identity, directory string) error {
 	return nil
 }
 
-// LoadLocalIdentity loads the local identity from the specified directory.
+// LoadLocalIdentity loads the identity from the specified directory.
 func LoadLocalIdentity(directory string) (*Identity, error) {
 	path := path.Join(directory, identityFilename)
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
+	return LoadIdentity(data)
+}
 
-	block, _ := pem.Decode(data)
+// LoadIdentity loads the identity from the provided PEM data.
+func LoadIdentity(pemData []byte) (*Identity, error) {
+	block, _ := pem.Decode(pemData)
 	privKey, err := lcrypto.NewPrivateKey(block.Bytes)
 	if err != nil {
 		return nil, err

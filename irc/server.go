@@ -4,6 +4,7 @@
 package irc
 
 import (
+	"bufio"
 	"container/list"
 	"fmt"
 	"net"
@@ -12,21 +13,66 @@ import (
 	"time"
 
 	"github.com/boreq/starlight/core"
+	"github.com/boreq/starlight/irc/humanizer"
 	"github.com/boreq/starlight/irc/protocol"
-	"github.com/boreq/starlight/network/node"
 	"github.com/boreq/starlight/utils"
+	"github.com/pkg/errors"
 	"golang.org/x/net/context"
+
+	"github.com/rakyll/statik/fs"
+
+	_ "github.com/boreq/starlight/irc/humanizer/statik"
 )
 
 var log = utils.GetLogger("irc")
 
 // NewServer creates a new IRC server which interfaces with the provided core
 // instance.
-func NewServer(core core.Core) *Server {
-	rv := &Server{
-		core: core,
+func NewServer(ctx context.Context, core core.Core, nickServerAddress string) (*Server, error) {
+	dictionary, err := loadDictionary()
+	if err != nil {
+		return nil, errors.Wrap(err, "could not load the dictionary")
 	}
-	return rv
+
+	humanizer, err := humanizer.New(ctx, core.Identity(), nickServerAddress, dictionary)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not create the humanizer")
+	}
+
+	rv := &Server{
+		core:      core,
+		humanizer: humanizer,
+	}
+	return rv, nil
+}
+
+// loadDictionary loads the list of words used by the humanizer for encoding
+// hashes.
+func loadDictionary() ([]string, error) {
+	statikFS, err := fs.New()
+	if err != nil {
+		return nil, errors.Wrap(err, "could not create statikFS")
+	}
+
+	f, err := statikFS.Open("/words.txt")
+	if err != nil {
+		return nil, errors.Wrap(err, "could not open a file")
+	}
+
+	var dictionary []string
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		dictionary = append(dictionary, scanner.Text())
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, errors.Wrap(err, "scanner error")
+	}
+
+	log.Debugf("loaded %d dictionary words", len(dictionary))
+
+	return dictionary, nil
 }
 
 // Server interfaces Core with the standard IRC clients by creating a local
@@ -36,6 +82,7 @@ type Server struct {
 	// represented by a single ID the common nick is stored in this
 	// variable.
 	nick       string
+	humanizer  *humanizer.Humanizer
 	users      list.List
 	core       core.Core
 	usersMutex sync.Mutex
@@ -50,7 +97,7 @@ func (s *Server) Start(ctx context.Context, addr string) error {
 	// Listen.
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "listen error")
 	}
 
 	// Subscribe to messages incoming via Core.
@@ -108,6 +155,8 @@ func (s *Server) runLoop(ctx context.Context, user *User) {
 			s.handlerJoin(ctx, user, msg)
 		case "PART":
 			s.handlerPart(ctx, user, msg)
+		case "WHOIS":
+			s.handlerPart(ctx, user, msg)
 		}
 	}
 }
@@ -129,12 +178,20 @@ func (s *Server) handlerNick(ctx context.Context, user *User, msg *protocol.Mess
 	prevNick := s.nick
 	s.nick = msg.Params[0]
 
+	if err := s.humanizer.SetNick(s.nick); err != nil {
+		user.Send(ctx, s.makeGlobalErrorMessage(err))
+	}
+
 	// If the nick has changed inform all connected users.
 	if s.nick != prevNick {
 		for e := s.users.Front(); e != nil; e = e.Next() {
 			u := e.Value.(*User)
 			if u.Initialized {
-				join := s.makeUserMessage(prevNick, "NICK", []string{s.nick})
+				join, err := s.makeUserMessage(prevNick, "NICK", []string{s.nick})
+				if err != nil {
+					log.Debugf("error making user message: %s", err)
+					return
+				}
 				u.Send(ctx, join)
 			}
 		}
@@ -149,7 +206,11 @@ func (s *Server) handlerNick(ctx context.Context, user *User, msg *protocol.Mess
 		s.sendMotd(ctx, user)
 		// Inform the user about the joined channels.
 		for _, chName := range s.core.ListChannels() {
-			join := s.makeUserMessage(s.nick, "JOIN", []string{chName})
+			join, err := s.makeUserMessage(s.nick, "JOIN", []string{chName})
+			if err != nil {
+				log.Debugf("error making user message: %s", err)
+				return
+			}
 			user.Send(ctx, join)
 		}
 	}
@@ -159,23 +220,27 @@ func (s *Server) handlerPrivmsg(ctx context.Context, user *User, msg *protocol.M
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
+	target := msg.Params[0]
+	text := msg.Params[1]
+
 	if protocol.IsChannelName(msg.Params[0]) {
-		// Send a channel message.
-		err := s.core.SendChannelMessage(ctx, msg.Params[0], msg.Params[1])
-		if err != nil {
+		if err := s.core.SendChannelMessage(ctx, target, text); err != nil {
 			// Inform the client about an error.
-			eMsg := s.makeServerMessage("NOTICE", []string{msg.Params[0], "Error: " + err.Error()})
+			eMsg := s.makeServerMessage("NOTICE", []string{target, "Error: " + err.Error()})
 			user.Send(ctx, eMsg)
 		} else {
 			// Inform other clients about the message.
 			s.usersMutex.Lock()
 			defer s.usersMutex.Unlock()
-			cMsg := s.makeUserMessage(s.nick, msg.Command, msg.Params)
+			cMsg, err := s.makeUserMessage(s.nick, msg.Command, msg.Params)
+			if err != nil {
+				log.Debugf("error making user message: %s", err)
+				return
+			}
 			s.sendToAllExcept(ctx, cMsg, user)
 		}
 	} else {
-		// Send a private message to a user.
-		target, err := node.NewId(msg.Params[0])
+		nodeId, err := s.humanizer.DehumanizeNick(target)
 		if err != nil {
 			// Inform the client about an error.
 			eMsg := &protocol.Message{
@@ -185,7 +250,7 @@ func (s *Server) handlerPrivmsg(ctx context.Context, user *User, msg *protocol.M
 			}
 			user.Send(ctx, eMsg)
 		} else {
-			err := s.core.SendMessage(ctx, target, msg.Params[1])
+			err := s.core.SendMessage(ctx, nodeId, text)
 			if err != nil {
 				// Inform the client about the error.
 				eMsg := &protocol.Message{
@@ -214,12 +279,16 @@ func (s *Server) handlerJoin(ctx context.Context, user *User, msg *protocol.Mess
 	channelName := msg.Params[0]
 	if err := s.core.JoinChannel(channelName); err != nil {
 		if err != core.ErrAlreadyInChannel {
-			user.Send(ctx, s.makeErrorMessage(err))
+			user.Send(ctx, s.makeGlobalErrorMessage(err))
 		}
 	} else {
 		s.usersMutex.Lock()
 		defer s.usersMutex.Unlock()
-		join := s.makeUserMessage(s.nick, "JOIN", []string{channelName})
+		join, err := s.makeUserMessage(s.nick, "JOIN", []string{channelName})
+		if err != nil {
+			log.Debugf("error making user message: %s", err)
+			return
+		}
 		s.sendToAll(ctx, join)
 	}
 }
@@ -244,12 +313,16 @@ func (s *Server) handlerPart(ctx context.Context, user *User, msg *protocol.Mess
 			)
 			user.Send(ctx, reply)
 		} else {
-			user.Send(ctx, s.makeErrorMessage(err))
+			user.Send(ctx, s.makeGlobalErrorMessage(err))
 		}
 	} else {
 		s.usersMutex.Lock()
 		defer s.usersMutex.Unlock()
-		join := s.makeUserMessage(s.nick, "PART", []string{channelName})
+		join, err := s.makeUserMessage(s.nick, "PART", []string{channelName})
+		if err != nil {
+			log.Debugf("error making user message: %s", err)
+			return
+		}
 		s.sendToAll(ctx, join)
 	}
 }

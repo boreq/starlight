@@ -22,6 +22,7 @@ type savedConfig struct {
 	ListenAddress     string
 	IRCGatewayAddress string
 	BootstrapNodes    []node.NodeInfo
+	NickServerAddress string
 }
 
 // Full config struct.
@@ -100,6 +101,7 @@ func Default() *Config {
 			ListenAddress:     ":1836",
 			IRCGatewayAddress: "127.0.0.1:6667",
 			BootstrapNodes:    getDefaultBootstrap(),
+			NickServerAddress: "https://example.com",
 		},
 	}
 	return conf

@@ -41,6 +41,13 @@ bench:
 proto:
 	protoc --proto_path="protocol/message" --go_out="protocol/message" protocol/message/message.proto
 
+words-update:
+	cat /usr/share/dict/american-english | egrep '^[a-z]+$$' | egrep '[a-z]{4}' > irc/humanizer/data/words.txt
+	@echo "Number of words: $$(cat irc/humanizer/data/words.txt | wc -l)"
+
+words-build:
+	statik -src=irc/humanizer/data -dest=irc/humanizer
+
 clean:
 	rm -rf ${BUILD_DIRECTORY}
 

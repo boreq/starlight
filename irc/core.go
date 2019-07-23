@@ -1,7 +1,6 @@
 package irc
 
 import (
-	"fmt"
 	"github.com/boreq/starlight/irc/protocol"
 	"github.com/boreq/starlight/network/dispatcher"
 	"github.com/boreq/starlight/network/node"
@@ -44,8 +43,14 @@ func (s *Server) handlePrivateMessage(ctx context.Context, sender node.ID, msg *
 	s.usersMutex.Lock()
 	defer s.usersMutex.Unlock()
 
+	prefix, err := s.getPrefix(sender)
+	if err != nil {
+		log.Debugf("error getting a prefix: %s", err)
+		return
+	}
+
 	pMsg := &protocol.Message{
-		Prefix:  fmt.Sprintf("%s!~%s@%s.wired", sender, "todo", sender),
+		Prefix:  prefix,
 		Command: "PRIVMSG",
 		Params:  []string{s.nick, *msg.Text},
 	}
@@ -58,8 +63,14 @@ func (s *Server) handleChannelMessage(ctx context.Context, sender node.ID, msg *
 	s.usersMutex.Lock()
 	defer s.usersMutex.Unlock()
 
+	prefix, err := s.getPrefix(msg.GetNodeId())
+	if err != nil {
+		log.Debugf("error getting a prefix: %s", err)
+		return
+	}
+
 	cMsg := &protocol.Message{
-		Prefix:  fmt.Sprintf("%x!~%s@%x.wired", msg.GetNodeId(), "todo", msg.GetNodeId()),
+		Prefix:  prefix,
 		Command: "PRIVMSG",
 		Params:  []string{string(msg.ChannelId), *msg.Text},
 	}

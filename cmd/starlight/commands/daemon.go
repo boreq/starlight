@@ -1,14 +1,16 @@
 package commands
 
 import (
+	"os"
+
 	"github.com/boreq/guinea"
 	"github.com/boreq/starlight/core"
 	"github.com/boreq/starlight/core/dht"
 	"github.com/boreq/starlight/irc"
 	"github.com/boreq/starlight/local"
 	"github.com/boreq/starlight/network"
+	"github.com/pkg/errors"
 	"golang.org/x/net/context"
-	"os"
 )
 
 var daemonCmd = guinea.Command{
@@ -58,10 +60,14 @@ func daemon(c guinea.Context) error {
 	}
 
 	// Run the local IRC gateway
-	ircSrv := irc.NewServer(core)
+	ircSrv, err := irc.NewServer(ctx, core, conf.NickServerAddress)
+	if err != nil {
+		return errors.Wrap(err, "could not create the irc server")
+	}
+
 	err = ircSrv.Start(ctx, conf.IRCGatewayAddress)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not start the irc server")
 	}
 
 	<-ctx.Done()
