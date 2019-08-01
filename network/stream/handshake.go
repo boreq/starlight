@@ -1,4 +1,4 @@
-package peer
+package stream
 
 import (
 	"bytes"
@@ -69,7 +69,7 @@ const nonceSize = 20
 // the message must be send at the same time as we are waiting to receive the
 // incomming message. As the messages are small this could work due to OS
 // buffering and the way the network stack works but it is a dangerous gamble.
-func (p *peer) sendAsyncWithContext(ctx context.Context, msg proto.Message) <-chan error {
+func (p *stream) sendAsyncWithContext(ctx context.Context, msg proto.Message) <-chan error {
 	errC := make(chan error)
 	go func() {
 		err := p.SendWithContext(ctx, msg)
@@ -83,7 +83,7 @@ func (p *peer) sendAsyncWithContext(ctx context.Context, msg proto.Message) <-ch
 // receiveAsyncWithContext is a conterpart of sendAsyncWithContext which makes
 // it easy to perform receive and send operations at the same time by using a
 // select on their results.
-func (p *peer) receiveAsyncWithContext(ctx context.Context) (<-chan proto.Message, <-chan error) {
+func (p *stream) receiveAsyncWithContext(ctx context.Context) (<-chan proto.Message, <-chan error) {
 	errC := make(chan error)
 	msgC := make(chan proto.Message)
 	go func() {
@@ -97,7 +97,7 @@ func (p *peer) receiveAsyncWithContext(ctx context.Context) (<-chan proto.Messag
 	return msgC, errC
 }
 
-func (p *peer) exchangeMessages(ctx context.Context, msg proto.Message) (proto.Message, error) {
+func (p *stream) exchangeMessages(ctx context.Context, msg proto.Message) (proto.Message, error) {
 	sendErrC := p.sendAsyncWithContext(ctx, msg)
 	msgC, recErrC := p.receiveAsyncWithContext(ctx)
 	select {
@@ -112,7 +112,7 @@ func (p *peer) exchangeMessages(ctx context.Context, msg proto.Message) (proto.M
 
 // The ride never ends. Performs a handshake, sets up a secure encoder and peer
 // id.
-func (p *peer) handshake(ctx context.Context, iden node.Identity) error {
+func (p *stream) handshake(ctx context.Context, iden node.Identity) error {
 
 	//
 	// === EXCHANGE INIT MESSAGES ===
@@ -340,7 +340,7 @@ func (p *peer) handshake(ctx context.Context, iden node.Identity) error {
 	return nil
 }
 
-func (p *peer) identify(ctx context.Context, listenAddresses []string) error {
+func (p *stream) identify(ctx context.Context, listenAddresses []string) error {
 	// Form Identity message.
 	remoteAddr := p.conn.RemoteAddr().String()
 

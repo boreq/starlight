@@ -1,4 +1,4 @@
-package peer
+package stream
 
 import (
 	"github.com/boreq/starlight/crypto"
@@ -7,7 +7,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-type Peer interface {
+type Stream interface {
 	// Info returns basic information about the node.
 	Info() node.NodeInfo
 
@@ -32,6 +32,6 @@ type Peer interface {
 	// connection.
 	Close()
 
-	// Closed returns true if this peer has been closed.
+	// Closed returns true if this stream has been closed.
 	Closed() bool
 }

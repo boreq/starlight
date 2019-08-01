@@ -10,6 +10,7 @@ import (
 	natlib "github.com/boreq/starlight/network/nat"
 	"github.com/boreq/starlight/network/node"
 	"github.com/boreq/starlight/network/peer"
+	"github.com/boreq/starlight/network/stream"
 	"github.com/boreq/starlight/utils"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
@@ -80,43 +81,39 @@ func (n *network) Listen() error {
 
 // Initiates a new connection (incoming or outgoing).
 func (n *network) newConnection(ctx context.Context, conn net.Conn) (peer.Peer, error) {
-	p, err := peer.New(ctx, n.iden, n.getListeningAddresses(), conn)
+	s, err := stream.New(ctx, n.iden, n.getListeningAddresses(), conn)
 	if err != nil {
-		log.Debugf("newConnection: failed to init a peer: %s", err)
-		return nil, errors.Wrap(err, "could not init a peer")
+		log.Debugf("newConnection: failed to init a stream: %s", err)
+		return nil, errors.Wrap(err, "could not init a stream")
 	}
-	return n.newPeer(p)
+	return n.newStream(s)
 }
 
 // Initiates a new peer.
-func (n *network) newPeer(p peer.Peer) (peer.Peer, error) {
-	// If we are already communicating with this node, return the peer we
-	// already have and terminate the new one.
+func (n *network) newStream(s stream.Stream) (peer.Peer, error) {
 	n.plock.Lock()
 	defer n.plock.Unlock()
-	existingPeer, err := n.findActive(p.Info().Id)
-	if err == nil {
-		log.Debugf("newConnection: already communicating with %x", p.Info().Id)
-		p.Close()
-		return existingPeer, nil
+
+	// Add this stream to the appropriate peer (or create one)
+	p, err := n.getPeerForStream(s)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get peer for stream")
 	}
 
-	n.peers = append(n.peers, p)
-
-	// Run a dispatcher to be able to receive messages from all peers easily.
+	// Receive and dispatch messages received via this stream
 	go func() {
 		for {
-			msg, err := p.ReceiveWithContext(n.ctx)
-			log.Debugf("%s received %T", p.Info().Id, msg)
-			if err != nil && p.Closed() {
-				log.Debugf("%s error %s, stopping the dispatcher loop", p.Info().Id, err)
+			msg, err := s.ReceiveWithContext(n.ctx)
+			log.Debugf("%s received %T", s.Info().Id, msg)
+			if err != nil && s.Closed() {
+				log.Debugf("%s error %s, stopping the dispatcher loop", s.Info().Id, err)
 				return
 			}
-			n.disp.Dispatch(p.Info(), msg)
+			n.disp.Dispatch(s.Info(), msg)
 		}
 	}()
 
-	log.Debugf("newConnection: accepted %s reporting listener on %s ", p.Info().Id, p.Info().Address)
+	log.Debugf("newStream: accepted %s reporting listener on %s ", s.Info().Id, s.Info().Address)
 
 	return p, nil
 }
@@ -152,7 +149,7 @@ func (n *network) Dial(nd node.NodeInfo) (Peer, error) {
 	}
 
 	// Return an error if the id doesn't match but return the peer anyway.
-	if !node.CompareId(nd.Id, p.Info().Id) {
+	if !node.CompareId(nd.Id, p.Id()) {
 		log.Debug("Dial: different node id, will warn")
 		return p, differentNodeIdError
 	} else {
@@ -172,16 +169,16 @@ func (n *network) CheckOnline(ctx context.Context, nd node.NodeInfo) error {
 		return errors.Wrap(err, "could not dial")
 	}
 
-	p, err := peer.New(ctx, n.iden, n.getListeningAddresses(), conn)
+	s, err := stream.New(ctx, n.iden, n.getListeningAddresses(), conn)
 	if err != nil {
 		return errors.Wrap(err, "could not create a peer")
 	}
 
-	if !node.CompareId(nd.Id, p.Info().Id) {
+	if !node.CompareId(nd.Id, s.Info().Id) {
 		return differentNodeIdError
 	}
 
-	go n.newPeer(p)
+	go n.newStream(s)
 	return nil
 }
 
@@ -194,7 +191,7 @@ func (n *network) findActive(id node.ID) (peer.Peer, error) {
 		if n.peers[i].Closed() {
 			n.peers = append(n.peers[:i], n.peers[i+1:]...)
 		} else {
-			if node.CompareId(n.peers[i].Info().Id, id) {
+			if node.CompareId(n.peers[i].Id(), id) {
 				return n.peers[i], nil
 			}
 		}
@@ -225,13 +222,26 @@ func (n *network) getInternalListeningPort() (int, error) {
 }
 
 func (n *network) getListeningAddresses() []string {
-	var addresses []string
-	addresses = append(addresses, n.address)
+	addresses := []string{n.address}
 	if address, err := n.nat.GetAddress(); err != nil {
-		log.Debugf("get listening addresses error: %s", err)
+		log.Debugf("failed getting NAT address: %s", err)
 	} else {
-		log.Debugf("external listening addresses is: %s", address)
+		log.Debugf("NAT address is: %s", address)
 		addresses = append(addresses, address)
 	}
 	return addresses
+}
+
+func (n *network) getPeerForStream(s stream.Stream) (peer.Peer, error) {
+	for _, p := range n.peers {
+		if node.CompareId(s.Info().Id, p.Id()) {
+			if err := p.AddStream(s); err != nil {
+				return nil, errors.Wrap(err, "could not add the stream")
+			}
+			return p, nil
+		}
+	}
+	p := peer.New(s)
+	n.peers = append(n.peers, p)
+	return p, nil
 }

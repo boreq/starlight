@@ -249,7 +249,7 @@ func (d *dht) lookupDisjointPath(ctx context.Context, buckets []*resultsList, bu
 			p, err := d.netDial(ndInfo)
 			if err == nil {
 				if breakOnResult {
-					if node.CompareId(p.Info().Id, id) {
+					if node.CompareId(p.Id(), id) {
 						nData.MarkAddressValid(address.Address)
 						resultC <- results.Results()
 						return
@@ -292,6 +292,7 @@ func (d *dht) lookupDisjointPath(ctx context.Context, buckets []*resultsList, bu
 		prevAllProcessed = allProcessed
 
 		// Await results.
+		// TODO: move this before two previous if statements?
 		log.Debug("findNode waiting")
 		select {
 		case <-ctx.Done():

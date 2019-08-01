@@ -30,10 +30,10 @@ type Network interface {
 	Subscribe() (chan dispatcher.IncomingMessage, dispatcher.CancelFunc)
 }
 
-// Peer strips certain methods from peer.Peer.
+// Peer represents an external node.
 type Peer interface {
-	// Returns information about the peer.
-	Info() node.NodeInfo
+	// Id returns the id of this peer.
+	Id() node.ID
 
 	// Returns the node's public key.
 	PubKey() crypto.PublicKey
