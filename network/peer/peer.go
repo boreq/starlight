@@ -24,6 +24,9 @@ type Peer interface {
 	// Sends a message to the node, returns an error if context is closed.
 	SendWithContext(context.Context, proto.Message) error
 
+	// Cleanup removes closed streams from this peer.
+	Cleanup()
+
 	// Closed returns true if all streams have been closed.
 	Closed() bool
 
@@ -100,4 +103,15 @@ func (p *peer) Closed() bool {
 		}
 	}
 	return true
+}
+
+func (p *peer) Cleanup() {
+	p.streamsMutex.Lock()
+	defer p.streamsMutex.Unlock()
+
+	for i := len(p.streams) - 1; i >= 0; i-- {
+		if p.streams[i].Closed() {
+			p.streams = append(p.streams[:i], p.streams[i+1:]...)
+		}
+	}
 }

@@ -19,6 +19,8 @@ import (
 var log = utils.GetLogger("network")
 var differentNodeIdError = errors.New("peer has a different id than requested")
 
+const cleanupPeersEvery = 1 * time.Minute
+
 func New(ctx context.Context, ident node.Identity, address string) Network {
 	net := &network{
 		ctx:     ctx,
@@ -30,13 +32,13 @@ func New(ctx context.Context, ident node.Identity, address string) Network {
 }
 
 type network struct {
-	ctx     context.Context
-	iden    node.Identity
-	peers   []peer.Peer
-	plock   sync.Mutex
-	disp    dispatcher.Dispatcher
-	nat     *natlib.NAT
-	address string
+	ctx        context.Context
+	iden       node.Identity
+	peers      []peer.Peer
+	peersMutex sync.Mutex
+	disp       dispatcher.Dispatcher
+	nat        *natlib.NAT
+	address    string
 }
 
 func (n *network) Subscribe() (chan dispatcher.IncomingMessage, dispatcher.CancelFunc) {
@@ -62,6 +64,20 @@ func (n *network) Listen() error {
 	go func() {
 		<-n.ctx.Done()
 		listener.Close()
+	}()
+
+	// Periodically remove closed streams and peers that no longer have
+	// open streams
+	go func() {
+		for {
+			select {
+			case <-time.After(cleanupPeersEvery):
+				log.Debug("executing cleanupPeers")
+				n.cleanupPeers()
+			case <-n.ctx.Done():
+				return
+			}
+		}
 	}()
 
 	// Run the loop accepting connections
@@ -91,8 +107,8 @@ func (n *network) newConnection(ctx context.Context, conn net.Conn) (peer.Peer, 
 
 // Initiates a new peer.
 func (n *network) newStream(s stream.Stream) (peer.Peer, error) {
-	n.plock.Lock()
-	defer n.plock.Unlock()
+	n.peersMutex.Lock()
+	defer n.peersMutex.Unlock()
 
 	// Add this stream to the appropriate peer (or create one)
 	p, err := n.getPeerForStream(s)
@@ -127,15 +143,15 @@ func (n *network) Dial(nd node.NodeInfo) (Peer, error) {
 		return nil, errors.New("Tried calling a local id")
 	}
 
-	// Try to return an already existing peer.
-	n.plock.Lock()
+	// Try to return an already existing peer
+	n.peersMutex.Lock()
 	p, err := n.findActive(nd.Id)
-	n.plock.Unlock()
+	n.peersMutex.Unlock()
 	if err == nil {
 		return p, nil
 	}
 
-	// Dial a peer if we are not already talking to it.
+	// Dial a peer if we are not already talking to it
 	conn, err := net.DialTimeout("tcp", nd.Address, dialTimeout)
 	if err != nil {
 		log.Debug("Dial: not responding", err)
@@ -183,6 +199,9 @@ func (n *network) CheckOnline(ctx context.Context, nd node.NodeInfo) error {
 }
 
 func (n *network) FindActive(id node.ID) (Peer, error) {
+	n.peersMutex.Lock()
+	defer n.peersMutex.Unlock()
+
 	return n.findActive(id)
 }
 
@@ -244,4 +263,16 @@ func (n *network) getPeerForStream(s stream.Stream) (peer.Peer, error) {
 	p := peer.New(s)
 	n.peers = append(n.peers, p)
 	return p, nil
+}
+
+func (n *network) cleanupPeers() {
+	n.peersMutex.Lock()
+	defer n.peersMutex.Unlock()
+
+	for i := len(n.peers) - 1; i >= 0; i-- {
+		n.peers[i].Cleanup()
+		if n.peers[i].Closed() {
+			n.peers = append(n.peers[:i], n.peers[i+1:]...)
+		}
+	}
 }
