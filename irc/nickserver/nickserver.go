@@ -19,6 +19,7 @@ const timeout = 10 * time.Second
 
 const putUrl = "nicks"
 const getUrl = "nicks/<id>"
+const getByNickUrl = "ids/<nick>"
 
 func NewNickServerClient(baseUrl string, iden *node.Identity) (*NickServerClient, error) {
 	u, err := url.Parse(baseUrl)
@@ -141,6 +142,42 @@ func (n *NickServerClient) Get(id node.ID) (string, error) {
 	}
 
 	return nickData.Nick, nil
+}
+
+func (n *NickServerClient) GetByNick(nick string) (node.ID, error) {
+	url, err := n.getUrl(strings.ReplaceAll(getByNickUrl, "<nick>", nick))
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get url")
+	}
+
+	response, err := n.client.Get(url)
+	if err != nil {
+		return nil, errors.Wrap(err, "request failed")
+	}
+
+	if response.StatusCode != 200 {
+		return nil, errors.New("server returned an error")
+	}
+
+	b, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "reading the response failed")
+	}
+
+	nickData := &data.NickData{}
+	if err := json.Unmarshal(b, nickData); err != nil {
+		return nil, errors.Wrap(err, "decoding json failed")
+	}
+
+	if nick != nickData.Nick {
+		return nil, errors.New("server returned data for a wrong node")
+	}
+
+	if err := nickData.Validate(); err != nil {
+		return nil, errors.Wrap(err, "server returned invalid data")
+	}
+
+	return nickData.Id, nil
 }
 
 func (n *NickServerClient) getUrl(s string) (string, error) {

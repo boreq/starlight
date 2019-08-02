@@ -107,13 +107,16 @@ func (h *Humanizer) getNick(id node.ID) (string, error) {
 		return "", err
 	}
 
-	// Handle colission by refreshing the colliding nick
+	// Handle collision by refreshing the colliding nick
 	existingId, ok := h.nicks.GetId(nick)
 	if ok && !node.CompareId(existingId, id) {
+		log.Debugf("handling collision for %s", existingId)
 		if _, err := h.getNick(existingId); err != nil {
 			return "", err
 		}
 	}
+
+	// TODO notify about nick change if this nick exists in the cache
 
 	h.nicks.Put(id, nick)
 	return nick, nil
@@ -125,8 +128,14 @@ func (h *Humanizer) DehumanizeNick(nick string) (node.ID, error) {
 
 	nodeId, ok := h.nicks.GetId(nick)
 	if !ok {
-		// TODO query the server
-		return nil, errors.New("nick not found")
+		id, err := h.nickServer.GetByNick(nick)
+		if err != nil {
+			return nil, errors.Wrap(err, "getbynick failed")
+		}
+
+		// TODO handle collision
+
+		return id, nil
 	}
 
 	return nodeId, nil
