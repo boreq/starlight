@@ -75,7 +75,7 @@ func (n *NAT) GetAddress() (string, error) {
 
 	if n.mapping != nil {
 		if addr, err := n.mapping.ExternalAddr(); err != nil {
-			return "", err
+			return "", errors.Wrap(err, "failed getting external address")
 		} else {
 			return addr.String(), nil
 		}
